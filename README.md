@@ -2,7 +2,7 @@
 
 _Course information at the bottom of the page._
 
-These notes cover CS 246E in Fall 2017, the first offering of the course. The textbook used is [The C++ Programming Language](http://www.stroustrup.com/4th.html),
+These notes cover CS 246E in Fall 2021. The textbook used is [Stroustrup, Bjarne. The C++ Programming Language, 4th edition, Addison Wesley](http://www.stroustrup.com/4th.html),
 reading sections are referenced to this book. 
 
 ## Table of Contents
@@ -45,6 +45,9 @@ reading sections are referenced to this book.
 ## Other
 1. [Valgrind + GDB](Notes/tutorial_1.md)
 1. [Recursive Descent](Notes/tutorial_7.md)
+
+## Discussions
+1. [Modules](Notes/discussion_1.md)
 
 ## Index
 Work in progress (feel free to contribute)!
@@ -230,9 +233,9 @@ Work in progress (feel free to contribute)!
 ### Z
 
 
-## Course Information (Fall 2017)
+## Course Information (Fall 2021 Pandemic version)
 _Brad Lushman_  
-_DC 3110_  
+_Online, M3 1006_  
 _bmlushma@uwaterloo.ca_  
 _[https://www.student.cs.uwaterloo.ca/~cs246e](https://www.student.cs.uwaterloo.ca/~cs246e)_  
 
@@ -252,11 +255,10 @@ putty.exe
 
 Also Install xwindows server, eg. Xming, XQuartz
 
-**TUTORIAL ATTENDANCE IS MANDATORY!**
-
 ## Goals:
 
 - Meet the CS 246 objectives, more breadth, more depth
 - A course on abstraction
 - Demand-driven, problem-oriented presentation, introduce C++ concepts as needed
 - Linux tools on the side/tutorials
+- C++17, C++20 features during discussion sessions.
