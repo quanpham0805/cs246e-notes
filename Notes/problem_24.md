@@ -1,228 +1,146 @@
-[<< Shared Ownership](./problem_23.md) | [**Home**](../README.md) | [>> I want an even faster vector](./problem_25.md)
+[<< A big unit on Object Oriented Design](./object_oriented_design.md) | [**Home**](../README.md) | [>> Abstraction over Iterators](./problem_24.md)
 
-# Problem 24: Abstraction over Iterators
+# Problem 23 - Shared Ownership
 **2017-11-16**
 
-I want to jump ahead `n` spots in my container.
+Is C++ hard? (No, if you're a client programmer)
+
+But explicit memory management...
+- If you need an array, use `vector`
+- If you need a heap object, use `unique_ptr`
+- Use stack-allocated objects as much as possible
+
+If you follow these you should never have to say `delete` or `delete[]`
+
+But `unique_ptr` doesn't respect is-a:
 
 ```C++
-template<typename Iter> Iter advance(Iter it, ptrdiff_t n);
+unique_ptr<Base> p(new Derived);    // Ok
+p->virtfn();    // Runs derived version, Ok
 ```
 
-How should we do it?
+BUT
 
 ```C++
-for (ptrdiff_t i = 0; i < n; ++i) ++it;
-return it;
+unique_ptr<Derived> q = ...
+unique_ptr<Base> p = std::move(q);  // Wrong
 ```
 
-Slow: O(n), can't we say `it += n`?
+Type error, no conversion between `unique_ptr<Derived>` and `unique_ptr<Base>`
 
-Depends:
-- For `vector`, yes (O(1) time)
-- For `list`, no (`+=` not supported, and if it was it'd still be in a loop)
-
-Related - Can we go backwards?
-- `vector`, yes
-- `list` no
-
-So all iterators support `!=`, `*`, `++`, but some iterators support other operations
-
-`list::iterator` - called a **forward iterator**, can only go one step forward
-`vector::iterator` - called a **random access iterator** can go anywhere (arbitrary pointer arithmetic)
-
-How can we write advance to use `+=` for random access iterators and a loop for forward iterators
-
-Since we have different kinds of iterators let's create a type hierarchy:
+Easy to fix:
 
 ```C++
-struct input_iterator_tag{};
-struct output_iterator_tag{};
-struct forward_iterator_tag: public input_iterator_tag{};
-struct bidirectional_iterator_tag: public input_iterator_tag{};
-struct random_access_iterator_tag: public bidrectional_iterator_tag{};
-```
-
-To associate each iterator class with a tag, could use inheritance:
-
-Ex.
-
-```C++
-class list {
-    ...
-    public:
-        class iterator: public forward_iterator_tag {
-            ...
-        };
-};
-```
-
-but this makes it hard to ask what kind of iterator we have (can't `dynamic_cast`, no `vtables`)
-- Doesn't work for iterators that aren't classes (eg. pointers)
-
-Instead make the tag a member:
-```C++
-class list {
-    ...
-    public:
-        class iterator { 
-            ...
-            public:
-                using iterator_catgory = forward_iterator_tag;
-                // Could use typedef
-        };
-};
-```
-
-**Convention:** every iterator class will define a type member called `iterator_category`.
-
-- Also doesn't work for iterators that aren't classes
-- But we aren't done yet
-
-Make a template that associates every iterator type with its category
-
-```C++
-template<typename It> struct iterator_traits {
-    using iterator_category = typename It::iterator_category;
-};
-
-// Ex.
-iterator_traits<List<T>::iterator>::iterator_category // forward_iterator_tag
-```
-
-Provide a specialized version for pointers:
-
-```C++
-template<typename T> struct iterator_traits<T*> {
-    using iterator_category = random_access_iterator_tag;
-};
-```
-
-Why typename?
-- Needed so that C++ can tell that the `iterator_category` is a _type_
-    - Remember that the compiler doesn't know anthing about `It`
-
-Consider:
-```C++
-template<typename T> void f() {
-    T::something x; // Only makes sense if T::something is a type
-}
-```
-
-But
-
-```C++
-template<typename T> void f()  {
-    T::something *x; 
-}
-```
-
-Pointer declaration or multiplication? Need to know whether `T::something` is a type
-- C++ always assumes value, unless told otherwise.
-
-```C++
-template<typename T> void f() {
-    typename T::something x;
-    typename T::something *x;
-}
-```
-
-Need to say `typename` whenever you refer to a member `typeof` a template parameter.
-
-Back to `iterator_traits`:
-For any iterator type `T`, `iterator_traits<T>::iterator_category` resolves to the tag struct for `T`. (Including if `T` is a pointer):
-
-What do we do with this?
-
-Want:
-```C++
-template <typename Iter>
-Iter advance(Iter it, ptrdiff_t n) {
-    if (typeid(typename iterator_traits<Iter>::iterator_category) 
-        == typeid(random_access_iterator_tag)) {
-        return it += n;
-    } else {
+template<typename T> class unique_ptr {
+    private:
+        T *p;
         ...
-    }
+    public:
+        template<typename U> unique_ptr(unique_ptr<U> &&q): p{q.p} {
+                q.p = nullptr;
+        }
 
-}
-```
-- Won't compile.
-- If the iterator is not random access, and doesn't have a `+=` operator, `it += n` will cause a compilation error, even though it will never be used.
-- Moreover, the choice of which implementation to use is being made at run-time, when the right choice is known at compile-time
-
-To make a compile-time decision - overloading
-- Make a dummy parameter with type of the iterator tag.
-```C++
-template <typename Iter>
-Iter doAdvance(Iter it, ptrdiff_t n, random_access_iterator_tag) {
-    return it += n;
-}
-
-template <typename Iter>
-Iter doAdvance(Iter it, ptrdiff_t n, bidirectional_iterator_tag) {
-    if (n > 0) for (ptrdiff_t i = 0; i < n; ++i) ++it;
-    else if (n < 0) for (ptrdiff_t i = 0; i > n; --i) --it;
-    return it;
-}
-
-template <typename Iter>
-Iter doAdvance(Iter it, ptrdiff_t n, forward_iterator_tag) {
-    if (n >= 0) {
-        for (ptrdiff_t i = 0; i < n; ++i) ++it;
-        return it;
-    }
-    throw SomeError{};
-}
-```
-
-Finally, create a wrapper function to select the right overload:
-```C++
-template <typename Iter>
-Iter advance(Iter it, ptrdiff_t n) {
-    return doAdvance(it, n, typename iterator_traits<Iter>::iterator_category {});
-}
-```
-
-Now the compiler will select the fast `doAdvance` for random access iterators, the slow `doAdvance` for bidirectional iterators, and the throwing `doAdvance` for forward iterators.
-
-These choices made at compile-time - no runtime cost.
-
-Using templates to perform compile-time computation - called **template metaprogramming**
-
-C++ templates form a functional language that operates at the level of types.
-- Express conditions by overloading, repetition via recursive template instatiation.
-
-Example:
-```c++
-template <int N> struct Fact {
-    static const int value = N * Fact<N-1>::value;
+        template<typename U> unique_ptr &operator=(unique_ptr<U> &&q) {
+            std::swap(p, q.p);  // T and U are mutually assignable
+            return *this;
+        }
 };
-
-template<> struct Fact<0> {
-    static const int value = 1;
-};
-
-int x = Fact<5>::value; // 120 - evaluated at compile-time!!!
 ```
 
-But for compile-time computation of values, C++11/14 offer a more straightforward facility:
+Works for any `unique_ptr` whose pointer is assignment compatible with `this->p`
+Ex. Subtypes of `T`, but not supertypes of `T`
+
+"But I want two smart pointers pointing at the same object!"
+- Why? The pointers that owns the object should be a `unique_ptr`
+    - All others should be raw pointers
+
+When would you want true shared ownership?
+
+Recall in Racket:
+
+```racket
+(define l1 (cons 1 (cons 2 (cons 3 empty))))
+(define l2 (cons 4 (rest l1)))
+```
+
+```
+   +---+---+    +---+---+   +---+---+
+l1 | 1 | ------>| 2 | ----->| 3 | \ |
+   +---+---+    +---+---+   +---+---+
+                  ^
+   +---+---+      |
+l2 | 1 | ---------+
+   +---+---+
+```
+
+Shared data structures are a nightmare in C. How can we ensure each node is freed exactly once?
+
+Easy in garbage collected languages.
+
+What can C++ do?
 
 ```C++
-constexpr int fact(int n) {
-    if (n == 0) return 1;
-    else return n * fact(n - 1);
+template <typename T> class shared_ptr {
+        T *p;
+        int *refcount;
+    public:
+        ...
+};
+```
+
+- `refcount` counts how many `shared_ptr`s point at `*p`.
+- Updated each time a `shared_ptr` is initialized/assigned/destroyed
+- `refcount` is shared among all shared pointers that point to `*p`
+
+- `p` is only deleted if its `refcount` reaches `0`
+- implementation details - left to you
+
+```C++ 
+struct Node {
+    int data;
+    shared_ptr<Node> next;
+};
+```
+
+Now deallocation is as easy as garbage collection
+
+Just watch: cycles
+
+```
+   +---+---+    +---+---+  
+   | 1 | ------>| 2 | -----+
+   +---+---+    +---+---+  |
+     ^                     |
+     |                     |
+     +---------------------+
+```
+
+If you have cyclic data, you may have to physically break the cycle (or use `weak_ptrs`)
+
+Also watch:
+
+```C++
+Book *p = new ...
+shared_ptr<Book> p1 {p};
+shared_ptr<Book> p2 {p}; // Will compile but NO
+```
+
+- `shared_ptr`s are not mind-readers
+- `p1` and `p2` will not share a `refcount` (BAD)
+- If you want 2 `shared_ptr`s at an object, create one `share_ptr` and copy it
+
+BUT
+
+You can't `dynamic_cast` these pointers
+
+```C++
+template<typename T, typename U> 
+shared_ptr<T> dynamic_pointer_cast(const shared_ptr<U> &spu) {
+    return shared_ptr<T>(dynamic_cast<T*>(spu.get()));
 }
 ```
 
-- `constexpr` functions
-    - evaluate this at compile-time if `n` is a compile-time constant
-    - else evaluate at runtime
-
-A `constexpr` function must be something that actually can be evaluated at compile-time
-- Can't be virtual
-- Can't mutate non-local variables
-- Etc.
+Similarily `const_pointer_cast`, `static_pointer_cast`
 
 ---
-[<< Shared Ownership](./problem_23.md) | [**Home**](../README.md) | [>> I want an even faster vector](./problem_25.md)
+[<< A big unit on Object Oriented Design](./object_oriented_design.md) | [**Home**](../README.md) | [>> Abstraction over Iterators](./problem_24.md)

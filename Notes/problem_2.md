@@ -1,225 +1,155 @@
-[Input/Output <<](./problem_1.md) | [**Home**](../README.md) | [>> Linear Collections and Memory Management](./problem_3.md) 
+[Input/Output <<](./problem_1.md) | [**Home**](../README.md) | [>> Linear Collections and Modularity](./problem_3.md) 
+# Problem 2: Separate compilation
+## **2021-09-14**
+Put echo in its own module
 
-# Problem 2: Linear Collections and Modularity
-**2017-09-14**
-
-### Linked lists and arrays
-
-**Linked List**
-_node.h_
-
+#### echo.h
 ```C++
-#include <cstddef>  // Provides size_t
-
-struct Node {
-    int data;
-    Node *next;
-};
-
-size_t size(Node *n);
+void echo (istream &f);
 ```
 
-_node.cc_
-
+#### echo.cc
 ```C++
-#include "node.h"
+#include "echo.h"
 
-size_t size(Node *n) {
-    size_t count = 0;
-    for (Node *cur = n; cur ; cur = cur->next) {
-        ++count;
-    }
-
-    return count;
+void echo(istream &f) {
+    // ...
 }
 ```
 
-_main.cc_
-
-**Note:** do NOT use `malloc`, `free`, and `NULL` in C++, instead use `new`, `delete`, and `nullptr`
-
-- In C, `NULL` is not a thing, just a constant defined as 0 in standard libraries. In C++, `nullptr` is an actual type that represents null.
-
+#### main.cc
 ```C++
-#include "node.h"
+#include <iostream>
+#include <fstream>
+#include "echo.h"
 
-int main() {
-    Node *n = new Node;
-    n->data = 3;
-    n->next = nullptr;
-
-    Node *n2 = new Node {3, new Node {6, nullptr}};
-    Node *n3 = new Node {4, new Node {5, nullptr}};
-
-    delete n;
-    delete n2; // Memory leak!! Delete n2->next first
-
-    while (n3) {
-        Node *tmp = n3;
-        n3 = n3->next;
-        delete tmp;
-    }
+int main(...) {
+    echo(cin);
+    //...
+    echo(f);
 }
+
 ```
 
-What would happen if we do
+**Compiling separately:** 
+- `g++14 echo.cc` (fails)
+    - linking error: no main
+- `g++14 main.cc` (fails)
+    - linking error: no echo
 
-```C++
-#include "node.h"
-#include "node.h"
+Correct:
+
+`g++14 -c echo.cc` -> creates `echo.o`
+
+`g++14 -c main.cc` -> creates `main.o` (these are object files, binary code but imcomplete program)
+
+`-c` indicates **only compile, don't link**
+
+`g++14 echo.o main.o -o mycat` (linker)
+
+Advantage:
+- Only have to recompile the parts you change, then relink (no so expensive)
+    - Ex. Change echo.cc -> recomplie echo.cc -> relink
+- However if you change echo.h, you must recompile `echo.cc` and `main.cc` and relink
+    - This is because both files include `echo.h`
+- What if we don't remember what we changed or what depends on what?
+    - Linux tool: `make`
+    - Create a **Makefile**
+
+```mak
+mycat: main.o echo.o
+    g++ main.o echo.o -o mycat
+
+main.o: main.cc echo.h
+    g++ -std=c++14 -Wall -c main.cc
+
+echo.o: echo.cc echo.h
+    g++ -std=c++14 -Wall -c echo.cc
+
+.PHONY: clean
+
+clean:
+    rm mycat main.o echo.o
 ```
 
--Won't compile, struct defined twice-
+**Note:** cannot use `g++`aliases, requires **TABS** not **SPACE**
 
-How do we prevent this?
+- **targets:** `mycat`, `main.o`, `echo.o`
+- **dependencies:** everything right of colon
+- **recipes:** tabbed information
+- `make clean`: removes all binary.
+- `.PHONY: clean`: `clean` is not a file name.
 
-## C Preprocessor
+**How to use:**
+- From the command line `cd` to the right directory then type `make`. This build the whole program. Done.
+- If we make changes and call `make`, it will only recompile the necessary files. If no change was made, nothing happens.
+- `make clean`: removes all binary.
 
-Transforms the program before the compiler sees it
+How make works: list a dir in long form `ls -l`
 
-`#include _____` drops the contents of a file "right here"
+Example: `-rw-r----- 1 j2smith j2smith 25 Sep 9 15:27 echo.cc`
+- First dash (`-`) is type. The next 3 groups of 3 characters would represent owner/group/other permissions.
+- The number after is `links`, should not worry about it for now.
+- Next 3 are owner, group, and size of file.
+- Next is last modified date and time.
+- Last is file name.
+- Based on last modified time.
+- Starting at the leaves of the dependency graph
+    - if the dependency is newer than the target, rebuild the target ... and so on, up to the root target
 
-Including old C headers: `#include <stdio.h>` -> `#include <cstdio>`
+Example: 
+- echo.cc newer than echo.o -rebuild echo.o
+- echo.o newer than mycat - rebuild mycat
 
-`#define VAR VALUE`
+Shortcuts - use variables:
 
-- Preprocessor variable
-- All subsequent occurences of VAR are replaced with VALUE
+```bash
+CXX = g++                       (name of compiler)
+CXXFLAGS = -std=c++14 -Wall     (compiler options)
+EXEC = myprogram
+OBJECTS = main.o echo.o
 
-Ex.
-```C++
-#define MAX 10
-int x[MAX];
-```
-Translates to `int x[10];`
+${EXEC}: ${OBJECTS}
+    ${CXX} ${OBJECTS} -o ${EXEC}
 
-Ex 2.
-_myprogram.cc_
+main.o: main.cc echo.h
 
-```C++
-int main() {
-    int x[MAX];
-    ...
-} 
-```
+echo.o: echo.cc echo.h
 
-Instead of defining the constant inside the code, we can use a command line arg
+.PHONY: clean
 
-- `g++14 -DMAX=10 myprogram.cc`
-
-```C++
-#if SECURITYLEVEL == 1
-    short int
-#elif SECURITYLEVEL == 2
-    long long int
-#endif
-    publicKey;
-```
-
-Choose one of the options to present to the compiler. `#else` also exists
-
-**Special Case:**
-```C++
-#if 0  // industrial-strength "comment out"
-...    // /* ... */ doesn't nest
-#endif // Does nest 
+clean: 
+    rm ${OBJECTS} ${EXEC}
 ```
 
-Fixing the include problem: `#include guards`
+- Omitted recipes - make "guesses" the right one
 
-_node.h_
-```C++
-#ifndef NODE_H  // If NODE\_H is not defined"
-#define NODE_H  // Value is the empty string
-... (file contents)
-#endif
+Writing the dependencies still hard (but compiler can help).
+
+- `g++14 -c -MMD echo.cc`: generates `echo.o, echo.d`. The `d` stands for dependencies.
+- `cat echo.d` -> `echo.o echo.cc echo.h` 
+
+```C
+CXX = g++
+CXXFLAGS = -std=c++14 -Wall -MMD
+EXEC = mycat
+OBJECTS = main.o echo.o
+DEPENDS = ${OBJECTS:.o=.d}
+
+${EXEC}: ${OBJECTS}
+    ${CXX} ${OBJECTS} -o ${EXEC}
+
+-include ${DEPENDS}
+
+.PHONY: clean
+
+clean:
+    rm ${EXEC} ${OBJECTS} ${DEPENDS}
+
 ```
+Now, all we need to keep track of is `OBJECTS` and `EXEC`.
 
-First time _node.h_ is included, symbol NODE_H not defined, so file is included.
-
-Subsequently, symbol is defined, so file is supressed.
-
-**ALWAYS**
-
-- Put `#include guards` in header files
-
-**NEVER**
-
-- Compile.h files
-- Include .cc files
-
-Now what if someone writes:
-
-```C++
-struct Node {
-   int data;
-   Node *left, *right; 
-};
-
-size_t size(Node *n); // Size of tree
-```
-
-You can't use both in the same program
-
-**Solution:** namespaces
-
-_list.h_
-
-```C++
-namespace List {
-    struct Node {
-        int data;
-        Node *next;
-    };
-
-    size_t size(Node *n); 
-}
-```
-
-_tree.h_
-
-```C++
-namespace Tree {
-    struct Node {
-        int data;
-        Node *left, *right;
-    };
-
-    size_t size(Node *n); 
-}
-```
-
-_list.cc_
-
-```C++
-#include "list.h"
-
-size_t List::size(Node *n) {  // List::Node *n is not necessary b/c the function is in the namespace
-    ...
-}
-```
-
-_tree.cc_
-
-```C++
-#include "tree.h"
-
-size_t Tree::size(Node *n) { 
-    ...
-}
-```
-
-**Namespaces are open**
-
-Anyone can add items to any namespace
-
-_some\_other\_file.h_
-
-```C++
-namespace List {
-    struct some_other_struct {...};
-}
-```
+Always use makefiles. Create MakeFile before we start coding.
 
 ---
-[Input/Output <<](./problem_1.md) | [**Home**](../README.md) | [>> Linear Collections and Memory Management](./problem_3.md) 
+[Input/Output <<](./problem_1.md) | [**Home**](../README.md) | [>> Linear Collections and Modularity](./problem_3.md) 

@@ -1,165 +1,99 @@
-[I want a constant vector <<](./problem_6.md) | [**Home**](../README.md) | [>> Efficient Iteration](./problem_8.md)
+[Moves << ](./problem_5.md) | [**Home**](../README.md) | [>> Tampering](./problem_7.md) 
 
-# Problem 7: Tampering
-**2017-09-21**
+# Problem 6: I want a constant vector
+**2017-09-26**
 
-```C++
-vector v;
-v.cap = 100;    // Sets cap without allocating memory
-v.push_back(1);
-v.push_back(10);
-...  // Undefined behaviour - will likely crash
-```
-**Interfering with ADTs (Abstract Data Types)**
-
-1. Forgery 
-    - Creating an object without a constructor function
-        - Not possible once we wrote constructors
-1. Tampering
-    - Accessing the internals without using provided interface functions
-
-What's the big deal? _Invariants_
-
-- Statement that will always be true about an abstraction
-
-ADT's provide and rely on invariants
-
-- **Stacks**
-    - Provide the invariant that the last item pushed is the first item popped
-- **Vectors**
-    - Rely on the invariant that elements `O`, ..., `cap-1` denote valid locations
-
-Cannot gaurantee invariants if the user can interfere, makes the program hard to reason behind
-
-**Fix:** _encapsulation_, seal objects into "black boxes"
+Say we want to print a vector:
 
 ```C++
-struct vector {
-    private:    // Fields are only accessible within the vector class
-        size_t n, cap;      
-        int *theVector;
-    public:     // Visible to all
-        vector();
-        size_t size() const;
-        void push_back(int n);
-        ..
-};
-```
-
-If no access specifer is given: default is public
-
-In a previous lecture:
-
-_vector.cc_
-```C++
-#include "vector.h"
-namespace {
-    void increaseCap(vector &v) {...}   // Doesn't work anymore! Doesn't have access to v's internals
+ostream &operator <<(ostream &out, const Vector &v) {
+    for (size_t i = 0; i < v.size(), ++i) {
+        out << v.itemAt(i) << " ";
+    }
 }
 ```
 
-Try again:
+WON'T COMPILE!!! (lushman pls)
 
-_vector.h_
+- Can't call `size()` and `itemAt()` on a const object. What if these methods change fields?
+- Since they don't, declare them as `const`
+
 ```C++
 struct vector {
-    private:
-        size_t ...
-        ...
-    public:
-        vector();
-        ...
-
-    private:
-        void increaseCap(); // Now a private method
+    ...
+    size_t size() const;    // Means these methods will not modify fields
+    int &itemAt(size_t i) const;    // Can be called on const objects
+    ...
 };
+
+size_t vector::size() const {return n};
+int &vector:itemAt(size_t i) const {return theVector[i];}
 ```
 
-NOW
-_vector.cc_
-```C++
-namespace CS246E {
-    vector::vector() {...}  
-    // etc. as before
-    void vector::increaseCap() {...}  // Don't need anonymous namespaces anymore!
-};
-```
+Now the loop will work.
 
-- **Structs** (`struct`)
-    - Default public access
-    - Would be better if we had default private
-- **Classes** (`class`)
-    - Exactly like struct, except private default access
-
-_vector.cc_
-```C++
-class vector {
-        size_t n, cap;
-        int *theVector;
-    public:
-        vector();
-        ...
-
-    private:
-        void increaseCap(); // Now a private method
-};
-```
-
-A similar problem with linked lists:
+BUT:
 
 ```C++
-Node n {3, nullptr};    // Stack allocated
-Node m {4, &n}; // m's dtor will try to delete &n (undefined)
+void f(const vector &v) {
+    v.itemAt(0) = 4;    // Works!! v not very const...
+}
 ```
 
-There was an invariant that - `next` is `nullptr` or was allocated by `new`
+- `v` is a const object - cannot change `n`, `cap`, `theVector` (ptr)
+- You can changed items pointed to by `theVector`
 
-How can we enforce this? 
-- Encapsulate Node inside a "wrapper" class
+Can we fix this?
 
 ```C++
-class list {
-    struct Node {    // Private nested class - not available outside
-        int data;
-        Node *next; // ... methods
-    };
-
-    Node *theList;
-    
-    public:
-        list(): theList{nullptr} {}
-        ~list() {delete theList;}
-        size_t size() const;
-
-        void push_front(int n) {
-            theList = new Node{n, theList};
-        }
-
-        void pop_font() {
-            if (theList) {
-                Node *tmp = theList;
-                theList = theList->next;
-                tmp->next = nullptr;
-                delete tmp;
-            }
-        }
-
-        const int &operator[](size_t i) const {
-            Node *cur = theList;
-            for (size_t j = 0; j < i && cur; ++j, cur=cur->next);
-            return curr->daata;
-        }
-
-        int &operator[](size_t i) {
-            Node *cur = theList;
-            for (size_t j = 0; j < i && cur; ++j, cur=cur->next);
-            return curr->data;
-        }   
+struct vector {
+    ...
+    const int &itemAt(size_t i) const;
 };
+
+const int &itemAt(size_t i) const {
+    return theVector[i];
+}
 ```
-Client cannot manipulate the list directly
-- No access to next pointers
-- Invariant is maintained
+
+Now `v.itemAt(0) = 4` won't compile if `v` is const, but it also won't compile if `v` is not const
+
+To fix: **const overloading**
+
+```C++
+struct vector {
+    ...
+    const int &itemAt(size_t i) const;  // Will be called if the object is const
+    int &itemAt(size_t i);  // Will be called if object is non-const
+};
+
+inline const int &Vector::itemAt(size_t i) const {return theVector[i];}
+inline int &vector::itemAt(size_t) {return theVector[i]};
+```
+
+Putting in `inline` tells the compiler to replace the function call with the function body to save the cost of having to call a function
+
+Merely a suggestion, compiler can choose to ignore it if it sees fit. Good idea for small functions
+
+So now `v.itemAt(0) = 4;` will only compile if and only if `v` is non-const
+
+Now let's make it prettier:
+
+```C++
+struct vector {
+    size_t size() const {return n;} // Method body inside class implcity declares the method inline
+    const int &operator[](size_t i) const {return theVector[i]};
+    int &operator[](size_t i) {return theVector[i];}    
+};
+
+ostream &operator<<(ostream &out, const vector &v) {
+    for (size_t i = 0; i < v.size(); ++i) {
+        out << v[i] << " ";
+    }
+
+    return out;
+}
+```
 
 ---
-[I want a constant vector <<](./problem_6.md) | [**Home**](../README.md) | [>> Efficient Iteration](./problem_8.md)
+[Moves << ](./problem_5.md) | [**Home**](../README.md) | [>> Tampering](./problem_7.md) 

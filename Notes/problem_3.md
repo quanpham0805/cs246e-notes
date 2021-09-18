@@ -1,472 +1,225 @@
-[Linear Collections and Modularity <<](./problem_2.md) | [**Home**](../README.md) | [>> Copies](./problem_4.md) 
+[Separate compilation <<](./problem_2.md) | [**Home**](../README.md) | [>> Linear Collections and Memory Management](./problem_4.md) 
 
-# Problem 3: Linear Collections and Memory Management
-**2017-09-14**  
-**Readings:** 7.7.1, 14, 16.2 
+# Problem 3: Linear Collections and Modularity
+**2021-09-14**
 
-**Arrays**
-`int a[10];`
+### Linked lists and arrays
 
-- On the stack, fixed size
-
-On the heap:
-`int *p = new int[10];`
-
-To delete:
-`delete[] p;`
-
-Use `new` with `delete`, and `new [...]` with `delete[]`
-
-Mismatching these is undefined behaviour
-
-**Problem:** what if our array isn't big enough
-Note: no `realloc` for `new`/`delete`  
-
-Use abstraction to solve the problem:
-
-_vector.h_
+**Linked List**
+_node.h_
 
 ```C++
-#ifndef VECTOR_H
-#define VECTOR_H
+#include <cstddef>  // Provides size_t
 
-namespace CS246E {
-    struct vector {
-        size_t size, cap;
-        int *theVector;
-    }
+struct Node {
+    int data;
+    Node *next;
 };
 
-const size_t startsize = 1;
-
-vector make_vector();
-
-size_t size(const vector &v);
-
-int &itemAt(const vector &v, size_t i);
-
-void push_back(const vector &v, int x);
-
-void pop_back(const vector&v);
-
-void dispose(vector &v);
-
-#endif
+size_t size(Node *n);
 ```
 
-_vector.cc_
+_node.cc_
 
 ```C++
-#include "vector.h"
+#include "node.h"
 
-namespace {  // Anonymous namespace makes the function only visible to file (same as static in C)
-    void increaseCap(CS246E::vector &v) {
-        if (v.size == v.cap) {
-            int *newVec = new int[2 * v.cap];
-
-            for (size_t i = 0; i < v.cap; ++i) {
-                newVec[i] = v.theVector[i]
-            }
-
-            delete[] v.theVector;
-            v.theVector = newVec;
-            v.cap *= 2;
-        }
+size_t size(Node *n) {
+    size_t count = 0;
+    for (Node *cur = n; cur ; cur = cur->next) {
+        ++count;
     }
-}
 
-CS246E::vector CS246E::make_vector() {
-    vector v {0, startSize, new int[startSize]};
-    return v;
-}
-
-size_t CS246E::size(const vector &v) {
-    return v.size;
-}
-
-int &CS246E::itemAt(const vector &v, size_t i) {
-    return v.theVector[i];
-}
-
-void CS246E::push_back(vector &v, int n) {
-    increaseCap(v);
-    v.theVector[v.size++] = n;
-}
-
-void CS246E::pop_back(vector &v) {
-    if (v.size > 0) {
-        --v.size;
-    }
-}
-
-void CS246E::dispose(vector &v) {
-    delete[] v.theVector;
+    return count;
 }
 ```
 
 _main.cc_
 
-```C++
-#include "vector.h"
+**Note:** do NOT use `malloc`, `free`, and `NULL` in C++, instead use `new`, `delete`, and `nullptr`
 
-using CS246E::vector;  // only allows you to use vector without CS246E::
+- In C, `NULL` is not a thing, just a constant defined as 0 in standard libraries. In C++, `nullptr` is an actual type that represents null.
+
+```C++
+#include "node.h"
 
 int main() {
-    vector v = CS246E::make_vector();
-    push_back(v, 1);
-    push_back(v, 10);
-    push_back(v, 100);  // Can add as many items as we want without worrying about allocation
-    itemAt(v, 0) = 2;
-    dispose(v);
+    Node *n = new Node;
+    n->data = 3;
+    n->next = nullptr;
+
+    Node *n2 = new Node {3, new Node {6, nullptr}};
+    Node *n3 = new Node {4, new Node {5, nullptr}};
+
+    delete n;
+    delete n2; // Memory leak!! Delete n2->next first
+
+    while (n3) {
+        Node *tmp = n3;
+        n3 = n3->next;
+        delete tmp;
+    }
 }
 ```
 
-**Question:** why don't we have to say `CS246E::push_back`, `CS246E::itemAt`, `CS246E::dispose?`
-
-**Answer:** Argument-Dependent Lookup (ADL) - aka König lookup
-
-- If the type of a function f's argument belongs to a namespace n, then C++ will search the namespace n,
-as well as the current scope, for a function matching f
-
-This is the reason why we can say
-```C++
-std::cout << x
-// rather than
-std::operator<< (std::cout, x)
-```
-
-- **Problems** 
-    - What if we forget to call `make_vector`? (uninitialized object)
-    - What if we forget to call `dispose`? (memory leak)
-- How can we make this more robust?
-
-## Introduction to Classes
-First concept in OOP - functions inside structs
+What would happen if we do
 
 ```C++
-struct Student {
-    int assns, mt, final;
-    
-    float grade() {
-        return assns*0.4 + mt*0.2 + final*0.4;
-    }
-};
+#include "node.h"
+#include "node.h"
 ```
 
-- Structs that can contain functions - **classes**
-- Functions inside structs - **methods**
-- Instances of a class - **objects**
+-Won't compile, struct defined twice-
 
-```C++
-Student bob {90, 70, 80};
-cout << bob.grade();
-```
+How do we prevent this?
 
-`bob` is an object, `.grade()` is a method.
+## C Preprocessor
 
-What do `assns`, `mt`, `final`, mean with `grade() {...}`?
+Transforms the program before the compiler sees it
 
-- Fields of the _current_ object, the receiver of the method call (ie. `bob`)
+`#include _____` drops the contents of a file "right here"
 
-Formally, methods differ form functions in that methods have an implicit parameter called `this`, that is 
-a pointer to the receiver object.
+Including old C headers: `#include <stdio.h>` -> `#include <cstdio>`
 
-`this == &bob`
+`#define VAR VALUE`
 
-Could hae written (equivalent):
-
-```C++
-struct Student {
-    ...
-
-    float grade() {
-        return this->assns * 0.4
-                + this->mt * 0.2
-                + this->final * 0.4;
-    }
-};
-```
-
-## Initializing objects
-```C++
-Student bob {90, 70, 80}
-```
-
-- C style struct initialization
-- Field by field
-- ok, but limited
-
-Better initializtion method: a constructor
-
-```C++
-struct Student {
-    int assns, mt, final;
-
-    Student(int assns, int mt, int final) {
-        this->assns = assns;
-        this->mt = mt;
-        this->final = final;
-    }
-};
-
-// Now we can call
-Student bob {90, 70, 80};
-// Now calls the constructor with args 90, 70, 80
-```
-
-**Note:** once the constructor is defined, the C style field-by-field initialization is no longer available
-
-**Equiv:** 
-```C++ 
-Student bob = Student{90, 70, 80};
-```
-
-**Heap:**
-```C++
-Student *p = new Student{90, 80, 70};
-delete p;
-```
-- **Advantages of constructors:**
-    - Default parameters
-    - Overloading
-    - Sanity checks
-
-ex.
-
-```C++
-struct Student {
-    student(int assns = 0, int mt = 0, int final = 0) {
-        this->assns = assns;
-        ...
-    }
-};
-
-Student laura {70};  // 70, 0 , 0
-Student newKid; // 0, 0, 0 
-```
-
-**Note:** Every class comes with a **default constructor** (zero argument constructor)
-
-ex.
-
-```C++
-Node n;  // Default constructor (constructs all fields that are objects), does nothing in this case
-```
-
-This goes away if you write any constructor
+- Preprocessor variable
+- All subsequent occurences of VAR are replaced with VALUE
 
 Ex.
-
 ```C++
-struct Node {
-    int data;
-    Node *next;
-
-    Node (int data, Node *next = nullptr) {
-        ...
-    }
-};
-
-Node n {3};  // GOOD
-Node n;  // BAD - no default constructor
+#define MAX 10
+int x[MAX];
 ```
+Translates to `int x[10];`
 
-## Object creation protocol
-
-When an object is created, there are 4 steps:
-
-1. Space is allocated
-2. (later)
-3. Fields are constructeed in declaration (field constructors called for fields that are objects)
-4. Constructor body runs
-
-Field initialization should happen in step 3, but constructor body happens in step 4
-
-Consequence: object fields are intialized twice:
-
-```C++
-#include <string>
-
-struct Student {
-    int assns, mt, final;
-    std::string name;
-
-    Student (std::string name, int assns, int mt, int final) {
-        this->name = name;  // etc.
-    }
-};
-
-Student mike {"Mike", 90, 70, 60};
-// name default-initialized in step 3 ("")
-// then reassigned in step 4 ("Mike")
-```
-
-**To fix:** the Member Initialization List (MIL)
-
-```C++
-struct Student {
-    Student (string name, int assns, int mt, int final): 
-        name{name}, assns{assns}, mt{mt}, final{final}  // Step 3
-    {  // Step 4
-
-    }
-}
-```
-
-MIL _must_ be used for fields that are 
-
-- Constants
-- References
-- Objects
-
-In general, it should be used as much as possible.
-
-Careful: single argument constructors
-```C++
-struct Node {
-    Node(int data, Node *next = nullptr): ... {}
-}
-```
-
-- Single argument constructors create implicit constructors
-
-```C++
-Node n {4};     // OK
-Node n = 4;     // OK - implicity converted from int to Node
-
-void f(Node n);
-f(4); // OK - maybe trouble
-```
-
-However you can add an `explicit` keyword to disable the implicit conversion
-
-```C++
-explicit struct Node {
-    Node(int data, Node *next = nullptr): ... {}
-}
-
-Node n {4};  // OK
-Node n = 4;  // BAD
-
-f(4) // BAD
-f(Node {4}) // OK
-```
-
-## Object Destructor
-
-A method called the **destructor** (dtor) runs automatically
-
-- Built-in dtor: calls dtor on all fields that are objects
-- Object destruction protocol:
-    1. Dtor body runs
-    2. Fields destructed (dtors called on fields that are objs) in reverse declaration order
-    3. (Later)
-    4. Space deallocated
-
-```C++
-struct Node {
-    int data;
-    Node *next;
-};
-```
-
-In this case the built-in destructor does nothing because neither field is an object
-
-If we have:
-
-```C++
-Node *n = new Node {3, new Node {4, new Node {5, nullptr}}}
-delete n;  // Only deletes the first node (memory leak!)
-```
-
-We can fix this by writing our own destructor:
-
-```C++
-struct Node {
-    ...
-
-    ~Node() {
-        delete next;
-    }
-};
-
-delete n;  // Now frees the whole list
-```
-
-Also:
-
-```C++
-{
-    Node n {1, new Node {2, new Node {3, nullptr}}};
-}  // Scope of n ends; whole list is freed
-```
-
-Objects:
-
-- A constructor always runs when they are created
-- A destructor always runs when they are destroyed
-
-_vector.h_
-
-```C++
-#ifndef VECTOR_H
-#define VECTOR_H
-
-namespace CS246E {
-    struct vector {
-        size_t n, cap;
-        int *theVector;
-
-        vector();
-        size_t size();
-        int &itemAt(size_t i);
-        void push_back();
-        void pop_back();
-        ~vector();
-    };
-}
-#endif
-```
-
-_vector.cc_
-
-```C++
-#include "vector.h"
-
-namespace {
-    void increaseCap(vector &v) {
-        ...
-    }
-}
-
-const size_t startSize = 1;
-
-CS246E::vector::vector(): 
-    n{0}, cap{startSize}, theVector{new int[cap]} {
-}
-
-size_t CS246E::vector::size() {
-    return n;
-}
-
-// Etc.
-
-CS246E::vector::~vector() {
-    delete[] theVector;
-}
-```
-
-_main.cc_
+Ex 2.
+_myprogram.cc_
 
 ```C++
 int main() {
-    vector v;   // Constructor is already called - no make_vector
-    v.push_back(1);
-    v.push_back(10);
-    v.push_back(100);
-    v.itemAt(0) = 2; 
-}   // No dispose - destructor cleans v up
+    int x[MAX];
+    ...
+} 
+```
+
+Instead of defining the constant inside the code, we can use a command line arg
+
+- `g++14 -DMAX=10 myprogram.cc`
+
+```C++
+#if SECURITYLEVEL == 1
+    short int
+#elif SECURITYLEVEL == 2
+    long long int
+#endif
+    publicKey;
+```
+
+Choose one of the options to present to the compiler. `#else` also exists
+
+**Special Case:**
+```C++
+#if 0  // industrial-strength "comment out"
+...    // /* ... */ doesn't nest
+#endif // Does nest 
+```
+
+Fixing the include problem: `#include guards`
+
+_node.h_
+```C++
+#ifndef NODE_H  // If NODE\_H is not defined"
+#define NODE_H  // Value is the empty string
+... (file contents)
+#endif
+```
+
+First time _node.h_ is included, symbol NODE_H not defined, so file is included.
+
+Subsequently, symbol is defined, so file is supressed.
+
+**ALWAYS**
+
+- Put `#include guards` in header files
+
+**NEVER**
+
+- Compile.h files
+- Include .cc files
+
+Now what if someone writes:
+
+```C++
+struct Node {
+   int data;
+   Node *left, *right; 
+};
+
+size_t size(Node *n); // Size of tree
+```
+
+You can't use both in the same program
+
+**Solution:** namespaces
+
+_list.h_
+
+```C++
+namespace List {
+    struct Node {
+        int data;
+        Node *next;
+    };
+
+    size_t size(Node *n); 
+}
+```
+
+_tree.h_
+
+```C++
+namespace Tree {
+    struct Node {
+        int data;
+        Node *left, *right;
+    };
+
+    size_t size(Node *n); 
+}
+```
+
+_list.cc_
+
+```C++
+#include "list.h"
+
+size_t List::size(Node *n) {  // List::Node *n is not necessary b/c the function is in the namespace
+    ...
+}
+```
+
+_tree.cc_
+
+```C++
+#include "tree.h"
+
+size_t Tree::size(Node *n) { 
+    ...
+}
+```
+
+**Namespaces are open**
+
+Anyone can add items to any namespace
+
+_some\_other\_file.h_
+
+```C++
+namespace List {
+    struct some_other_struct {...};
+}
 ```
 
 ---
-[Linear Collections and Modularity <<](./problem_2.md) | [**Home**](../README.md) | [>> Copies](./problem_4.md) 
+[Separate compilation <<](./problem_2.md) | [**Home**](../README.md) | [>> Linear Collections and Memory Management](./problem_4.md) 

@@ -1,97 +1,112 @@
-[The copier is broken << ](./problem_21.md) | [**Home**](../README.md) | [>> A big unit on Object Oriented Design](./object_oriented_design.md)
+[I want a class with no objects << ](./problem_20.md) | [**Home**](../README.md) | [>> I want to know what kind of Book I have](./problem_22.md)
 
-# Problem 22: I want to know what kind of Book I have
-**2017-10-31** (happy halloween!) 
-> BOO! -Brad Lushman
+# Problem 21 - The copier is broken
 
-**For simplicity:** Assume the old book hiearchy
+How do copies and moves interact with inheritance?
+
+**Copy constructor:** 
+```C++
+Text::Text(const Text &other): Book{other}, topic{other.topic} {}
+```
+
+**Move constructor:** 
+```C++
+Text::Text(const Text &other): 
+    Book{std::move(other)}, 
+    topic{std::move(other.topic)} {}
+```
+
+We can still call `std::move(other.topic)` even though we already moved other because `std::move(other)` only took the "`Book` part", leaving `other.topic` behind.
+
+**Copy/Move assignment:**
+```C++
+Text &Text::operator=(Text other) {
+    Book::operator=(std::move(other));
+    topic = std::move(other.topic); 
+}
+```
+
+But consider:
+```C++
+Book *b1 = new Text{...};  // Author1 writes about BASIC
+Book *b2 = new Text{...};  // Author2 writes C++
+
+*b1 = *b2;
+```
+Now Author2 writes about BASIC and Author1 writes about C++
+- Essentially only the book part gets copied over
+- **Partial Assignment**
+- Topic doesn't match title and author - as a `Book` this is valid, as a `Text` it is corrupted
+
+Possible solution: make `operator=` virtual
+
+```C++
+class Book {
+        ...
+    public:
+        virtual Book &operator=(const Book &other);
+        ...
+};
+
+class Text: public Book {
+        ...
+    public:
+        Text &operator=(const Text &other) override;
+        ...
+};
+```
+
+Doesn't compile, `Text &operator=` must take a `Book` or it's no an override
+
+```C++
+class Text: public Book {
+        ...
+    public:
+        Text &operator=(const Book &other) override;
+        ...
+};
+```
+
+But then we could pass a `Comic` which is also a problem. We will revisit this later.
+
+Also note that we can return a `Text &` as opposed to a `Book &` in `class Text`. This is because we're returning a reference of a subclass, which is allowed.
+
+**Another solution:** make all superclasses abstract
+
+Instead of:
 
 - `Book`
     - `Text`
     - `Comic`
 
-- **C-style Casting**
-    - `(type) expr`
-    - Forces `expr` to be treated as type `type`
-    - Ex. ```C++
-            int *p;
-            int q = (int) p;
-          ```
-    - Very easy to be a source of error
-    - Very difficult to search for
+- _`AbstractBook`_
+    - `NormalBook`
+    - `Text`
+    - `Comic`
 
-The `C++` casting operators - _4 operators_
-- **`static_cast`:** for conversion with well-defined semantics
-    - Ex. 
-        ```C++
-        void f(int a); 
-        void f(double d);
-        int x;
-        f(static_cast<double>(x));
-        ```
-    - Ex. 
-        ```C++
-        // superclass pointer to a subclass pointer
-        Book *b = new Text { ... };
-        Text *t = static_cast<Text *>(b);
-        ```
-    - You do this if you're 100% sure that pointer is pointing to a `Text`, otherwise it is not safe
-- **`reinterpret_cast`:** for casts without well-defined semantics
-    - Unsafe, implementation-dependent (therefore unportable)
-    - Ex. 
-        ```C++
-        Book *b = new Book { ... };
-        int *p = reinterpret_cast<int *>(b);
-        ```
-- **`const_cast`:** for adding/removing const
-    - The only C++ cast that can "cast away `const`"
-    - If item is still in read-only memory, it's still read only
-    - Ex. 
-        ```C++
-        void g(Book &b);    // Assuming we know g won't change b 
-        void f(const Book &b) {
-            g(const_cast<Book &>(b));
+```C++ 
+class AbstractBook {
+        ...
+    protected:
+        AbstractBook &operator=(AbstractBook other) { ... } // Non-virtual
+};
+
+class Text: public AbstractBook {
+     public:
+        Text &operator=(Text other) {
+            AbstractBook::operator=(std::move(other));
+            topic = std::move(other.topic);
         }
-        ```
-- **`dynamic_cast`:** `Book *pb = ...`
-    - What if we _don't_ know whether `pb` points to a `Text`?
-    - `static_cast` is not safe
-        ```C++
-        Text *pt = dynamic_cast<Text*>(pb);
-        ```
-    - If `*pb` is a `Text` or a subclass of `Text`, cast succeeds. `pt` points at the object, else `pt = nullptr`.
-        ```C++
-        if (pt) { ... pt->getTopic() ... }
-        else ... // Not a Text
-        ```
-    - Ex.
-        ```C++
-        void whatIsIt(Book *pb) {    
-            if (dynamic_cast<Text*>(pb)) cout << "Text";
-            else if (dynamic_cast<Comic*>(pb)) cout << "Comic";
-            else cout << "Book";
-        }
-        ```
-        - **Not good style**, what happens when you create a new `Book` type?
-    - Dynamic reference casting
-        ```C++
-        Book *pb = ____;
-        Text &t = dynamic_cast<Text &>(*pb);
-        if (*pb is a Text) // ok
-        else // rase std::bad_cast
-        ```
-    - **Note:** dynamic casting works by accessing an objects **Run-Time Type Information (RTTI)**, this is stored in the   vtable for the class 
-        - This means we can only `dynamic_cast` on objects that have at least one virtual method
-    - Dynamic reference casting offers a possible solution to take polymorphic assignment problem:
-        ```C++
-        Text &Text::operator=(Book other) { // Virtual
-            Text &textother = dynamic_cast<Text &>(other);  // Throws if other is not a Text
-            if (this == &textOther) return *this;
-            Book::operator=(std::move(textother));
-            topic = std::move(textother.topic);
-            return this; 
-        }
-        ```
+};
+```
+
+Since `operator=` is non-virtual, there is no mixed assignment!
+
+`AbstractBook::operator=` not accessible to outsiders.
+
+Now `*b1 = *b2` won't compile.
+
+Basically saying, before you assign something, understand what you're assigning and do it directly rather than through your superclass.
+
 ---
-[The copier is broken << ](./problem_21.md) | [**Home**](../README.md) | [>> A big unit on Object Oriented Design](./object_oriented_design.md)
-
+[I want a class with no objects << ](./problem_20.md) | [**Home**](../README.md) | [>> I want to know what kind of Book I have](./problem_22.md)

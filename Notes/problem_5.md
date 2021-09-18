@@ -1,189 +1,108 @@
-[Copies <<](./problem_4.md) | [**Home**](../README.md) | [>> I want a constant vector](./problem_6.md)
+[Linear Collections and Memory Management << ](./problem_3.md) | [**Home**](../README.md) | [>> Moves](./problem_5.md) 
 
-# Problem 5: Moves
-**2017-09-21**
-
-Consider:
+# Problem 4: Copies
+**2017-09-20**
 
 ```C++
-Node plusOne(Node n) {
-    for (Node *p = &n; p; p = p->next) {
-        ++p->data;
-    }
+Vector v;
 
-    return n;
-}
-
-Node n {1, new Node {2, nullptr}};
-Node m = plusOne(n);
+v.pushback(100);
+...
+Vector w = v;  // Allowed - constructs w as a copy of v
+w.itemAt(0);  // 100
+v.itemAt(0); = 200;
+w.itemAt(0);  // 200 - **shallow copy**, v and w share data 
 ```
 
-In this case, "other" is a reference to the temporary object created to hold the result of plusOne.
+For `Vector w = v;`
 
-- "Other" is a reference to this temporary
-- Copy constructor deep-copies the data from this temporary
-
-**But** the temporary is just going to be thrown out anyway, as soon as the statement `Node m = plusOne(n)` is done
-
-It's wasteful to deep copy the temp, why not steal the data instead? - saves the cost of a copy
-We need to be able to tell whether "other" is a reference to a temporary object, or a standalone object
-
-**Rvalue references** - `Node &&` is a reference to a temporary object (rvalue) of type `Node`. We need a version of the constructor that takes a `Node &&`
-
-**Move Constructors** - steals other's data
+- Constructs `w` as a copy of `v`
+- Invokes the **copy constructor**
 
 ```C++
-struct Node {
+struct Vector {
+    Vector(const Vector &other) {...}  // Copy constructor
+    // Compiler supplied copy-ctor, copies all fields, shallow copy
+};
+```
+
+If you want a deep copy, write your own copy constructor
+
+```C++
+struct Node {  // Vector: exercise
+    int data;
+    Node *next;
     ...
-    Node(Node &&other): data{other.data}, next{other.next} {
-        other.next = nullptr;
-    }
-};
-```
-Similarly:
-```C++
-Node m;
-m = plusOne(n);  // assignment from temporary
-```
-
-**Move assignment operator**
-
-```C++
-struct Node {
-    ...
-    Node &operator=(Node &&other) {  // steal other's data
-        using std::swap;            // destroy my old data
-        swap(data, other.data);     // Easy: swap without the copy
-        swap(next, other.next);
-
-        return *this;
-    }
-};
-```
-
-Can combine copy/move assignment:
-
-```C++
-struct Node {
-    ...
-    Node &operator=(Node other) { 
-        swap(data, other.data);
-        swap(next, other.next);
-        return *this;
-    }
-};
-```
-
-- Unified assignment operator
-    - Pass by value
-    - Invokes copy constructor if an lvalue
-    - Invokes move constructor if an rvalue
-
-**Note:** copy/swap can be expensive, hand-coded operator may do less copying
-
-But now consider:
-
-```C++
-struct Student {
-    std::string name; // string is a class
-    Student(const std::string &name): name{name} {  // copies name into field (uses copy ctor)
-        ...
-    }
-};
-```
-
-What if `name` points to an rvalue?
-
-```C++
-struct Student {
-    std::string name;
-
-    Student (std::string name): name{name} {  // {name} may come from an rvalue, but it is an lvalue
-        ... // in other words, name may refer to an rvalue but name itself is an lvalue
-    }
-};
-```
-
-Will copy if `name` is an lvalue, moves if `name` is an rvalue
-
-```C++
-struct Student {
-    std::string name;
-    Student(std::string name): name{std::move(name)} {
-
-    }
-}
-```
-
-`name{std::move(name)}` forces `name` to be treated as an rvalue, now strings move constructor
-
-```C++
-struct Student {
-    ...
-    Student(Student &&other): //move constructor
-        name{other.name} {
+    Node (const Node &other): 
+        data{other.data}, next{other.next ? new Node{*(other.next)} : nullptr} {  // Account for dereferencing a nullptr
             ...
         }
+};
+```
+
+```C++
+Vector v;
+Vector w;
+
+w = v;  // Copy, but not a construction
+        // Copy assignment operator
+        // Compiler supplied: copies each field (shallow), leaks w's old data
+```
+
+## Deep copy assignment
+
+```C++
+struct Node {
+    Node &operator=(const Node &other) {
+        data = other.data;
+        next = other.next ? new Node{*(other.next)} : nullptr;
+
+        return *this;
+    }
+};
+```
+
+**WRONG - dangerous**
+
+Consider:
+```C++
+Node n {...};
+n = n;
+```
+
+Destroys `n`'s data and then copies it. Must always ensure the operator = works in the case of self assignment
+
+```C++
+Node &Node::operator=(const Node &other) {
+    if (this != &other) {
+        data = other.data;
+        next = other.next ? new Node{*other.next} : nullptr;
+    }
+
+    return *this;
 }
 ```
 
-If you don't define move operations, copy operations will be used
-
-If you do define them, then replace copy operations whenever the arg is a temporary (rvalue)
-
-## Copy/Move Elision
+**Alternative: copy-and-swap idiom**
 
 ```C++
-vector makeAVector() {
-    return vector{} //   // Basic constructor
-}
+#include <utility>
 
-vector v = makeAVector();   // move ctor? copy ctor?
+struct Node {
+    ...
+    void swap(Node &other) {
+        using std::swap;
+        swap(data, other.data);
+        swap(next, other.next);
+    }
+
+    Node &operator=(const Node &other) {
+        Node tmp = other;
+        swap(tmp);
+
+        return *this;
+    }
+};
 ```
-
-Try in g++, just the basic constructor, not copy/move
-
-In some circumstances, the compiler is allowed to skip calling the copy/move constructors (but doesn't have to). `makeAVector()` writes its result directly into the space occupied by `v`, rather than copy/move it later.
-
-Ex.
-```C++
-vector v = vector{};    // Formally a basic construction and a copy/move construction
-                        // vector{} is a basic constructor
-                        // Here though, the compiler is *required* to elide the copy/move
-                        // So basic constructor here only 
-
-vector v = vector{vector{vector{}}};    // Still one basic ctor only
-```
-
-Ex.
-``` C++
-void doSomething(vector v) {...};   // Pass-by-value - copy/move ctor
-
-doSomething(makeAVector());   
-```
-
-Result of `makeAVector()` written directly into the param, there is no copy/move
-
-This is allowed, even if dropping ctor calls would change the behaviour of the program (ex. if the constructors print something).
-
-If you really need all of the constructors to run:
-
-`g++14 -fno_elide_constructors ...`
-
-**Note:** while possible, can slow down your program considerably
-
-- Copying is an expensive procedure, the compiler skips these constructors as an optimization
-
-In summary: Rule of 5 (Big 5)
-
-- If you need to customize any one of
-1. Copy constructor
-1. Copy assignment
-1. Destructor
-1. Move constructor
-1. Move assignment
-
-then you usually need to customize all 5.
-
 ---
-[Copies <<](./problem_4.md) | [**Home**](../README.md) | [>> I want a constant vector](./problem_6.md)
+[Linear Collections and Memory Management << ](./problem_3.md) | [**Home**](../README.md) | [>> Moves](./problem_5.md) 

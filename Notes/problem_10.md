@@ -1,59 +1,189 @@
-[Staying in bounds << ](./problem_9.md) | [**Home**](../README.md) | [>> Better Initialization](./problem_11.md) 
+[Efficient Iteration <<](./problem_8.md) | [**Home**](../README.md) | [>> I want a vector of chars](./problem_10.md)
 
-# Problem 10: I want a vector of chars
+# Problem 9: Staying in Bounds
 **2017-10-03**
 
-Start over? No
+```C++
+Vector v;
+v.push_back(4);
+v.push_back(5);
 
-Introduce a major abstraction mechanism, **templates**
-- Generalize overtypes
+v[2];   // Out of bounds! (undefined behaviour) - may or may not crash
+```
 
-_Vector.h_
+Can we make this safer?
+
+Adding bounds checks to operator`[]` may be needlessly expensive.
+
+Could have a second, safer fetch operator:
 
 ```C++
-namespace CS246E {
-    template<typename T> class Vector {
-            size_t n, cap;
-            T* theVector;
+class Vector {
+    ...
+    public:
+        int &at (size_t i) {
+            if (i <= n) return theVector[i];
+            // else what?
+        }
+};
+```
 
-        public:
-            Vector();
+`v.at(2)` still wrong - what should happen?
+- Return any `int`, looks like non-error
+- Returning a non-`int`, not type correct
+- Crash the program - can we do better? Don't return. Don't crash
+
+**Solution:** raise an `exception`
+
+```C++
+class range_error {};
+
+class vector {
+    ...
+    public:
+        int &at(size_t i) {
+            if (i < n) return theVector[i];
+            else throw range_error{};   // Construct an object of range_error & "throw" it
+        } 
+};
+```
+
+- Client's options
+1. Do nothing
+    ```C++
+    vector v;
+    v.push_back(0);
+    v.at(1) // The exception will crash the program
+    ```
+1. Catch it
+    ```C++
+    try {
+        vector v;
+        v.push_back(0);
+        v.at(1);
+    } catch (range_error &r) {  // r is the thrown object, catch by reference saves a copy operation
+        // Do something
+    }
+    ```
+1. Let your caller catch it
+    ```C++
+    int f() {
+        vector v;
+        v.push_back(0);
+        v.at(1);
+    }
+    int g() {
+        try{
+            f();
+        } catch(range_error &r) {
+            // Do something
+        }
+    }
+    ```
+    - Exception will propogate through the callchain until a handler is found.
+    - Called **unwinding** the stack
+    - If no handler is found, program aborts (`std::terminate` gets called)
+    - Control resumes after the catch block (problem code is not retried)
+
+What happens if a constructor throws an exception?
+- Object is considered **partially constructed**
+- Destructor will not run on partially constructed object
+
+Ex.
+
+```C++ 
+
+class C {...};
+
+class D {
+    C a;
+    C b;
+    int *c;
+
+    public:
+        D() {
+            c = new int[100];
             ...
-            void push_back(T n);
-            T &operator[](size_t i);
-            const T &operator[] const(size_t)
+            if (...) throw something {};  // (*)
+        }
 
-            using iterator = T*;
-            using const_iterator = const T*;
-            // etc.
-    };
+        ~D() {
+            delete[] c;
+        }
+};
 
-    template<typename T> Vector<T>::vector() n{0}, cap{1}, theVector{new T[cap]} {}
-    template<typename T> void push_back(T n) {...}
-    /// etc.
-}
+D d;
 ```
 
-**Note:** For templates, the implementation goes in `.h` file
-
-_main.cc_
+- (\*) the `D` object is not fully constucted, so `~D()` will not run on d
+- But `a` and `b` are fully constucted so their destructors will run
+- So if a constructor wants to throw, it must clean itself
 
 ```C++
-int main() {
-    Vector<int> v;  // Vector of ints
-    v.push_back(1);
+class D {
     ...
-    Vector<char> w; // Vector of chars
-    v.push_back('a');
+    public:
+        D() {
+            c = new int[100];
+            ...
+            if (...) {
+                delete[] c;
+                throw something {};
+            }
+        }
+    }
+} 
+```
+
+What happens if a destructor throws? 
+> Trouble
+
+- By default, program aborts immediately
+- `std::terminate`
+- If you really want a throwing destructor, tag it with `noexcept(false)` 
+
+```C++
+class myexception{};
+
+class C {
     ...
+    public:
+        ~C(_) noexcept(false) {
+            throw myexception{};
+        }
+};
+```
+But watch out
+
+```C++
+void h() {
+    C c1;
+}
+
+void g() {
+    C c2;
+    h();
+};
+
+void f() {
+    try {
+        g();
+    } catch (myException &ex) {
+        ...
+    }
 }
 ```
 
-- **Semantics:**
-    - The first time the compile encounters `Vector<int>`, it creates a version of the vector code where `int` replaces `T` and compiles that new class
-    - Can't do that unless it has all the details about the class
-    - So implementation must be available in `.h`
-    - Can also write bodies inline
+1. Destructor for `c1` throws at the end of `h`
+1. Unwind through `g`
+1. Destructor for `c2` throws as we leave `g`
+    - No handler yet
+    - Now two unhandled exceptions
+    - Immediate termination guaranteed, `std::terminate` is called
+
+Never let destructors throw, swallow the exception if necessary
+
+Also note that you can throw _any value_, not just objects
 
 ---
-[Staying in bounds << ](./problem_9.md) | [**Home**](../README.md) | [>> Better Initialization](./problem_11.md) 
+[Efficient Iteration <<](./problem_6.md) | [**Home**](../README.md) | [>> I want a vector of chars](./problem_10.md)
