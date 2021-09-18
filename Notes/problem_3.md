@@ -1,12 +1,13 @@
 [Separate compilation <<](./problem_2.md) | [**Home**](../README.md) | [>> Linear Collections and Memory Management](./problem_4.md) 
 
 # Problem 3: Linear Collections and Modularity
-**2021-09-14**
+## **2021-09-14**
 
 ### Linked lists and arrays
 
 **Linked List**
-_node.h_
+
+#### node.h
 
 ```C++
 #include <cstddef>  // Provides size_t
@@ -16,28 +17,25 @@ struct Node {
     Node *next;
 };
 
-size_t size(Node *n);
+size_t size(Node *n); // size_t is a type that can guarantee to hold any amount of memory without limit.
 ```
 
-_node.cc_
+#### node.cc
 
 ```C++
 #include "node.h"
 
 size_t size(Node *n) {
     size_t count = 0;
-    for (Node *cur = n; cur ; cur = cur->next) {
-        ++count;
-    }
-
+    for (Node *cur = n; cur ; cur = cur->next) ++ count;
     return count;
 }
 ```
 
-_main.cc_
+#### main.cc
 
-**Note:** do NOT use `malloc`, `free`, and `NULL` in C++, instead use `new`, `delete`, and `nullptr`
-
+**Note:** Do NOT use `malloc`, `free`, and `NULL` in C++, instead use `new`, `delete`, and `nullptr`
+- `malloc` and `free` is too "low-level", which means you have to calculate the memory needed by yourself and that leads to calculations error. `new` and `delete` are built into the type system, so it knows how big the memory we need.
 - In C, `NULL` is not a thing, just a constant defined as 0 in standard libraries. In C++, `nullptr` is an actual type that represents null.
 
 ```C++
@@ -48,7 +46,7 @@ int main() {
     n->data = 3;
     n->next = nullptr;
 
-    Node *n2 = new Node {3, new Node {6, nullptr}};
+    Node *n2 = new Node {3, nullptr};
     Node *n3 = new Node {4, new Node {5, nullptr}};
 
     delete n;
@@ -62,6 +60,8 @@ int main() {
 }
 ```
 
+## **2021-09-16**
+
 What would happen if we do
 
 ```C++
@@ -69,11 +69,11 @@ What would happen if we do
 #include "node.h"
 ```
 
--Won't compile, struct defined twice-
+Won't compile, struct defined twice
 
 How do we prevent this?
 
-## C Preprocessor
+### C Preprocessor
 
 Transforms the program before the compiler sees it
 
