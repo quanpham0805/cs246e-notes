@@ -1,30 +1,32 @@
-[**Home**](../README.md) | [>> Linear Collections and Modularity](./problem_2.md) 
+[**Home**](../README.md) | [>> Separate compilation](./problem_2.md) 
 
 # Problem 1: Program Input/Output
-**2017-09-07**
+## **2021-09-09**
 
 - Read 2.2, 4.3 
 - running a program from the command line
 
 `./program-name` or `path/to/programe-name`
 
-**Note:** `.` means current directory
+**Note:** `.` means current directory. Linux shell is going to find the program. The system has a set of place to look for the program that we need to run, and when we try to run, system will find in those places to run.
 
 Providing input: 2 ways
 
 1. `./program-name arg1 arg2 ... argn`
     - args are written into the program's memory
-    - [code][n + 1 (argc)][arg1][arg2][...][argn] (argv) 
+    - [code] [n + 1] [arg1] [arg2] [...] [argn]
+    - There are `n + 1` arguments (usually called `argc` stands for arguments count), the first argument would be the name of the program (`argc >= 1`) and the list of arguments (usually called `argv` stands for argument vector), in which `argv[0] = program name`
+    - Why save argv? Well it might be useful XD
 
-2. `./program-name`
+1. `./program-name`
     - (Then type something)
-    - input comes through standard input stream (stdin)
-    - keyboard -> program -> stderr (never buffered) OR -> stdout (maybe buffered) -> screen
+    - input comes through standard input stream (stdin, connected to the keyboard by default)
+    - keyboard -> program -> stderr (never buffered) OR -> stdout (maybe buffered) -> screen by default
 
 **Redirection**
-`./my-program < infile > outfile 2>errfile`
+`./my-program < infile > outfile 2> errfile`
 
-**note:** 0 and 1 exists respectively, but only 2 is needed since it shares the same operator
+**Note:** 0 and 1 exists respectively, but only 2 is needed since it shares the same operator
 
 Consider (`C`):
 
@@ -46,8 +48,13 @@ int main(int argc, char *argv[]) {
         echo(stdin);
     } else {
         for (int i = 1; i < argc; ++i) {
+            // to work with a file, you need to open it first
+            // to open a file, you need to tell the OS you want this file, 
+            // and it would give you the FILE pointer that has necessary info to open that file.
             FILE *f = fopen(argv[i], "r");
             echo(f);
+            // Programming language rule: after you are done, close the file.
+            // Having the file open might prevent other program from accessing it.
             fclose(f);   
         }     
     }
@@ -56,19 +63,12 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-**note:**
-```C
-argv[0] = program-name
-...
-argv[argc] = NULL
-```
-
 Observe: cmd line args / input from stdin - 2 _different_ programming techniques
 
-To compile: `gcc -std=c99 -Wall my program.c -o myprogram`
+To compile: `gcc -std=c99 -Wall myprogram.c -o myprogram`
 `gcc` translates C source to executable binary
 `-Wall` means warn all, gives warning that only appear if asked for
-`-o` means what to rename program
+`-o` means what to call the output
 
 This program is a simplification of the linux `cat` command
 `cat file1 file2 ... filen` opens them and prints them one after another
@@ -97,16 +97,18 @@ int main() {
 }
 ```
 
-`std::cin`, `std::cout`, `std::cerr`: streams, types
-`std::istream`: (cin)
-`std::ostream`: (cout, cerr)
-`>>` input operator: (`cin >> x`), populates `x` as a side-effect, returns cin
-`<<` output operator: (`cout << x + y`), prints `x + y` as a side-effect, returns cout
+`std::cin`, `std::cout`, `std::cerr`: streams
+
+types: `std::istream`: (cin) or `std::ostream`: (cout, cerr)
+
+`>>` input operator: (`cin >> x`), populates `x` as a side-effect, produces cin
+
+`<<` output operator: (`cout << x + y`), prints `x + y` as a side-effect, produces cout
 
 These operators return cin/cout so they can be chained:
 From above: `std::cin >> x >> y;`
 
-## File Access
+### File Access
 ```C++
 std::ifstream f{"name-of-file"};  // ofstream for output
 char c;
@@ -115,9 +117,7 @@ while (f >> c) {
     std::cout << c;
 }
 ```
-
-\*`f >> c`
-
+`f >> c`
 - implicity converts to a bool
 - true = read succeded
 - false = read failed
@@ -149,9 +149,9 @@ Try `cat` in C++
 
 using namespace std;  // Avoids having to say std::
 
-void echo (istream f) {
+void echo (istream f) { // this does not work, we need to pass by ref, more discussion later
     char c;
-    f >> noskipws;;
+    f >> noskipws;
     while (f >> c) {
         cout << c;
     }
@@ -201,7 +201,7 @@ C and C++ are pass-by-value languages, so scanf needs the address of `x` in orde
 So why is it not `cin >> &x`?
 C++ has another small pointer-like type
 
-## References
+### References
 
 ```C++
 int y = 10
@@ -209,47 +209,56 @@ int &z = y;
 ```
 
 - `z` is an **lvalue reference** to `y`
-- Similar to `int *const z = y;` but with **auto-dereferencing**
+- lvalue (old definition): **lvalue of an expression** is the value that is has when it is on the left hand side of the assignment. When you are dealing with the left hand side you don't care about the value, you are interested in the location/address.
+- lvalue (modern definition): Something that could appear on the left hand side of an assignment.
+- Similar to `int *const z = &y;` but with **auto-dereferencing**
 
-`z = 12;`
-
-NOT `*z = 12`;
-`y` is now 12
+`z = 12;`, NOT `*z = 12`; `y` is now 12
 
 `int *p = &z;  // Gives the address of y`
 
-In all cases, `z` acts as if it were `y`
-`z` is an **alias** ("another name for `y`")
+In all cases, `z` acts as if it were `y`, `z` is an **alias** ("another name for `y`")
 
-lvalue references must be initialized to something that has an address
+`z` is a lvalue reference of `y`.
 
-`int &z = 4;` _**WRONG**_
-`int &z = a + b;` _**WRONG**_
+**lvalue references** must be **initialized** to something that **has an address**
 
-- Cannot create a pointer to a reference: `int &*x;`
-- Read right to left:
-    - > x is a pointer to a reference of an int
+✅`int &z = y` _**CORRECT**_, `y` has an address, `y` is a lvalue
+
+❌`int &z = 4;` _**WRONG**_, 4 is not a lvalue since it does not have a location in memory, it is a number
+
+❌ `int &z = a + b;` _**WRONG**_, `a + b` is a quantity but does not denote an area of memory
+
+**Cannot:**
+- ❌Create a pointer to a reference: `int &*x;`
+  - Read right to left:
+    > x is a pointer to a reference of an int
 - However you can create a reference to a pointer: `int *&x = __;`
-- Create a reference to a reference: `int &&r = z;` (compiles but means something else) 
-- Create an array of references: `int &r[3] = {...};`
-- You can use as function parameters:
+- ❌Create a reference to a reference: `int &&r = z;` (compiles but means something else) 
+- ❌Create an array of references: `int &r[3] = {...};`
 
+## **2021-09-14**
+
+You can pass as function parameters:
 ```C++
-void inc(int &n) {
-    ++n;
+void inc(int &n /* changes affect variable x */) {
+    n = n + 1; // no need pointer deref
 }
 
 int x = 5;
 inc(x);
-
 cout << x; // 6
 ```
 
-**Note:** cannot use `inc(5)` because references require objects with addresses (ie. literals do not)
+**Note:** cannot use `inc(5)` because references require objects with addresses (lvalue) (ie. literals do not)
 
 `cin >> x` works because `x` is passed by reference.
 
+The implementation would look like:
+
 `istream& operator >> (istream &in, int &n);`
+
+`n` is a reference to `x`.
 
 Now consider `struct ReallyBig {...};`
 
@@ -259,19 +268,17 @@ int f(ReallyBig rb) {
 }
 ```
 
-**Note:** `struct ReallyBig` is not necessary in C++ unlike in C
+**Note:** `struct ReallyBig` is not necessary in C++ unlike in C, i.e, we can remove `struct`.
 
 The case above uses passes by value which copies the huge struct -> this is really slow!
 
 Instead let's pass by reference which doesn't copy it -> this is fast!
 But this can be dangerous as the function may propogate changes to the caller.
-
 ```C++
 int g (ReallyBig &rb) {
     ...
 }
 ```
-
 So finally we can use constant references, this is fast and safe!
 
 ```C++
@@ -280,31 +287,32 @@ int h(const ReallyBig &rb) {
 }
 ```
 
-Prefer pass-by-const-ref over pass-by-value for anything larger than a pointer, unless the function needs to make a copy anyways.
+What this means is, we cannot use `rb` to directly mutate the argument passed to the function (caller), but we can make a copy of `rb` to mutate it. Watch out!
+
+Prefer **pass-by-const-ref** over **pass-by-value** for anything larger than a pointer (**❌DO NOT PASS-BY-REF FOR A SINGLE CHAR/BOOL❌**), unless the function needs to make a copy anyways, or when the function needs to mutate the argument, in which case we don't need the `const` modifier.
 
 Also:
 
 ```C++
-int f(int &n) {
+void f(int &n) {
     ...
 }
 
-int g(const int &n) {
+void g(const int &n) {
     ...
 }
 ```
 
-`f(5)` - (BAD) can't initialize an lvalue reference `n` to a literal value `5`.
-`g(5)` - (GOOD) since n can never be changed, the compiler allows this (stored in some temp location so n has something to point to)
+`f(5)` - (**❌BAD❌**) can't initialize an lvalue reference `n` to a literal value `5` which does not have a location in memoery.
+
+`g(5)` - (**✅GOOD✅**) since `n` can never be changed, the compiler allows this (stored in some temp location so `n` has something to point to)
 
 Back to `cat`:
-
 ```C++
 void echo(istream f) {
     ...
 }
 ```
-
 - `f` is passed by value, `istream` is copied
 - Copying streams is _not allowed_ (C++ has mechanisms to prevent copying)
 
@@ -320,146 +328,10 @@ void echo (istream &f) {
     }
 }
 ```
-
 To compile:
 - `g++ -std=c++14 -Wall mycat.cc -o mycat`
 - OR `g++14 mycat.cc -o mycat`
 - `./mycat`
 
-## Separate compilation
-Put echo in its own module
 
-### echo.h
-```
-void echo (istream &f);
-```
-
-### echo.cc
-```C++
-#include "echo.h"
-
-void echo(istream &f) {
-    ...
-}
-```
-
-### main.cc
-```C++
-#include <iostream>
-#include <fstream>
-#include "echo.h"
-
-int main(...) {
-    echo(cin);
-    ...
-    echo(f);
-}
-
-```
-
-**Compiling separately:** 
-- `g++14 echo.cc` (fails)
-    - linking error: no main
-- `g++14 main.cc` (fails)
-    - linking error: no echo
-
-Correct:
-
-`g++14 -c echo.cc` -> creates `echo.o`
-`g++14 -c main.cc` -> creates `main.o` (these are object files)
-
-`-c` indicates **only compile, don't link**
-
-`g++14 echo.o main.o -o mycat` (linker)
-
-Advantage:
-
-- Only have to recompile the parts you change, then relink (no so expensive)
-    - Ex. Change echo.cc -> recomplie echo.cc -> relink
-- However if you change echo.h, you must recompile `echo.cc` and `main.cc` and relink
-    - This is because both files include `echo.h`
-- What if we don't remember what we changed or what depends on what?
-    - Linux tool: `make`
-    - Create a **Makefile**
-
-```C++
-mycat: main.o echo.o
-    g++ main.o echo.o -o mycat
-
-main.o: main.cc echo.h
-    g++ -std=c++14 -Wall -c main.cc
-
-echo.o: echo.cc echo.h
-    g++ -std=c++14 -Wall -c echo.cc
-
-.PHONY: clean
-
-clean:
-    rm mycat main.o echo.o
-```
-
-**Note:** cannot use aliases, requires _TABS_ not _SPACES_
-
-- **targets:** mycat, main.o
-- **dependencies:** everything right of colon
-- **recipes:** tabbed information
-
-How make works: list a dir in long form `ls -l`
-
--rw-r----- 1 j2smith j2smith 25 Sep 9 15:27 echo.cc
-
-- Based on last modified time
-- Starting at the leaves of the dependency graph
-    - if the dependency is newer than the target, rebuild the target ... and so on, up to the root target
-
-ex. echo.cc newer than echo.o -rebuild echo.o
-    echo.o newer than mycat - rebuild mycat
-
-Shortcuts - use variables:
-
-```C++
-CXX = g++ (name of compiler)
-CXXFLAGS = -std=c++14 -Wall
-EXEC = myprogram
-OBJECTS = main.o echo.o
-
-${EXEC}: ${OBJECTS}
-    ${CXX} ${OBJECTS} -o ${EXEC}
-
-main.o: main.cc echo.h
-echo.o: echo.cc echo.h
-
-.PHONY: clean
-
-clean: 
-    rm ${OBJECTS} ${EXEC}
-```
-
-\*Omit recipes - make "guesses" the right one
-
-Writing the dependencies still hard (but compiler can help).
-
-- `g++14 -c -MMD echo.cc`: generates `echo.o, echo.d`
-- `cat echo.d` -> `echo.o echo.cc echo.h` 
-
-```C
-CXX = g++
-CXXFLAGS = -std=c++14 -Wall -MMD
-EXEC = mycat
-OBJECTS = main.o echo.o
-
-DEPENDS = ${OBJECTS:.o=.d}
-
-${EXEC}: ${OBJECTS}
-    ${CXX} ${OBJECTS} -o ${EXEC}
-
--include ${DEPENDS}
-
-.PHONY: clean
-
-clean:
-    rm ${EXEC} ${OBJECTS} ${DEPENDS}
-
-```
----
-[**Home**](../README.md) | [>> Linear Collections and Modularity](./problem_2.md) 
+[**Home**](../README.md) | [>> Separate compilation](./problem_2.md) 

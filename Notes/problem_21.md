@@ -1,112 +1,58 @@
-[I want a class with no objects << ](./problem_20.md) | [**Home**](../README.md) | [>> I want to know what kind of Book I have](./problem_22.md)
+[I'm leaking! << ](./problem_17.md) | [**Home**](../README.md) | [>> The copier is broken](./problem_21.md)
 
-# Problem 21 - The copier is broken
+# Problem 20 - I want a class with no objects
+**2017-10-26**
 
-How do copies and moves interact with inheritance?
-
-**Copy constructor:** 
 ```C++
-Text::Text(const Text &other): Book{other}, topic{other.topic} {}
-```
+class Student {
+    public:
+        virtual float fees() const;
+};
 
-**Move constructor:** 
-```C++
-Text::Text(const Text &other): 
-    Book{std::move(other)}, 
-    topic{std::move(other.topic)} {}
-```
+class RegularStudent: public Student {
+    public:
+        float fees() const override;    // Regular student frees
+}
 
-We can still call `std::move(other.topic)` even though we already moved other because `std::move(other)` only took the "`Book` part", leaving `other.topic` behind.
-
-**Copy/Move assignment:**
-```C++
-Text &Text::operator=(Text other) {
-    Book::operator=(std::move(other));
-    topic = std::move(other.topic); 
+class CoopStudent: public Student {
+    public:
+        float fees() const override;    // Co-op student frees
 }
 ```
 
-But consider:
-```C++
-Book *b1 = new Text{...};  // Author1 writes about BASIC
-Book *b2 = new Text{...};  // Author2 writes C++
+What should `Student::fees` do?
 
-*b1 = *b2;
-```
-Now Author2 writes about BASIC and Author1 writes about C++
-- Essentially only the book part gets copied over
-- **Partial Assignment**
-- Topic doesn't match title and author - as a `Book` this is valid, as a `Text` it is corrupted
+Don't know - every `Student` should either be `RegularStudent` or `CoopStudent`.
 
-Possible solution: make `operator=` virtual
+**Solution:** explicitly give `Student::fees` no implementation.
 
 ```C++
-class Book {
-        ...
+class Student {
     public:
-        virtual Book &operator=(const Book &other);
-        ...
-};
-
-class Text: public Book {
-        ...
-    public:
-        Text &operator=(const Text &other) override;
-        ...
+        virtual float fees() const = 0;
 };
 ```
 
-Doesn't compile, `Text &operator=` must take a `Book` or it's no an override
+`Student` is an **abstract class**  
+`fees()` is a **pure virtual method**
+
+Abstract classes cannot be instantiated:
 
 ```C++
-class Text: public Book {
-        ...
-    public:
-        Text &operator=(const Book &other) override;
-        ...
-};
+Student s;  // ERROR
+Student *s = new Student;   // ERROR
+```
+Can point to instances of **concrete classes** (non-abstract classes):
+
+```C++
+Student *s = new RegularStudent;
 ```
 
-But then we could pass a `Comic` which is also a problem. We will revisit this later.
+Subclasses of abstract classes are abstract are abstract, unless they implement every pure virtual method in the superclass.
 
-Also note that we can return a `Text &` as opposed to a `Book &` in `class Text`. This is because we're returning a reference of a subclass, which is allowed.
-
-**Another solution:** make all superclasses abstract
-
-Instead of:
-
-- `Book`
-    - `Text`
-    - `Comic`
-
-- _`AbstractBook`_
-    - `NormalBook`
-    - `Text`
-    - `Comic`
-
-```C++ 
-class AbstractBook {
-        ...
-    protected:
-        AbstractBook &operator=(AbstractBook other) { ... } // Non-virtual
-};
-
-class Text: public AbstractBook {
-     public:
-        Text &operator=(Text other) {
-            AbstractBook::operator=(std::move(other));
-            topic = std::move(other.topic);
-        }
-};
-```
-
-Since `operator=` is non-virtual, there is no mixed assignment!
-
-`AbstractBook::operator=` not accessible to outsiders.
-
-Now `*b1 = *b2` won't compile.
-
-Basically saying, before you assign something, understand what you're assigning and do it directly rather than through your superclass.
+Abstract classes 
+- used to organize concrete classes
+- can contain common fields and default methods (not need to be overrided)
 
 ---
-[I want a class with no objects << ](./problem_20.md) | [**Home**](../README.md) | [>> I want to know what kind of Book I have](./problem_22.md)
+[I'm leaking! << ](./problem_17.md) | [**Home**](../README.md) | [>> The copier is broken](./problem_21.md)

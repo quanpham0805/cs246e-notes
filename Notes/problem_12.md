@@ -1,82 +1,111 @@
-[Better Initialization << ](./problem_11.md) | [**Home**](../README.md) | [>> Less Copying](./problem_13.md) 
+[I want a vector of chars <<](./problem_10.md) | [**Home**](../README.md) | [>> I want a vector of Posns](./problem_12.md)
 
-# Problem 12: I want a vector of posns
+# Problem 11: Better Initialization
 **2017-10-04**
 
 ```C++
-struct Posn {
-    int x, y;
-    Posn(int x, int y): x{x}, y{y} {}
-};
+a[] = {1, 2, 3, 4, 5};  // Array    :)
 
-int main() {
-    vector<Posn> v; // Won't compile, why not?
-}
+vector<int> v;  // Vector   :(
+v.push_back(1);
+⋮
 ```
 
-Take a look at Vector's constructor:
+Long sequence of push backs can be very clunky
+
+Goal: better initialization
 
 ```C++
-template<typename T> vector<T>::vector(): n{0}, cap{1}, theVector{new T[cap]} {}
+template<typename T> class vector {
+    ⋮
+    public:
+        vector(): ...
+        vector(size_t n, T i = T{}): n {n}, cap {n == 0 ? 1 : n}, theVector{new T[cap]} {
+            for (size_t j = 0; j < n; ++j) {
+                theVector[j] = i;
+            }
+        }
+};
 ```
-`T[cap]` creates an array of T objects. Which `T` objects will be stored in the array?
-- C++ always calls a constructor when creating an object.
-- Which constructor gets called? The default constructor
-- But `Posn` doesn't have one
 
-Need to separate memory allocation (Object creation step 1) from initialization (steps 2-4)
+Now:
 
-**Allocation:** `void *operator new(size_t)`
-- Allocates `size_t` bytes
-- No initialization
-- Returns `void*`
+```C++
+vector<int> v;  // Empty
+vector<int> w{5};   // 0, 0, 0, 0, 0
+vector<int> z{3, 4};    // 4, 4, 4
+```
 
-**Note:** 
-- In C, `void*` implicity converts to any pointer type
-- In C++, the conversion requires a cast
+**Notes:** `T{}` (default constructor) means `0` if `T` is a built-in type
 
-**Initialization:** "Placement new"
-- `new (address) type`
-- Constructs a "type" object at "address"
-- Does not allocate memory (memory should already be allocated at "address")
+Better - what about true array-style initialization?
+
+```C++
+#include <initializer_list>
+template <typename T> class vector {
+    ⋮
+    public:
+        vector() ...;
+        vector(size_t n, T i = T{}) ...
+        vector(std::initializer_list<T> init): 
+            n{init.size()}, cap{init.size()}, theVector{new T[cap]} {
+                size_t i = 0;
+                for (auto &t: init) theVector[i++] = t;
+            }
+};
+```
+```C++
+vector<int> v {1, 2, 3, 4, 5};  // 1, 2, 3, 4, 5
+vector<int> v;  // Empty
+vector<int> v{5};   // 5
+vector<int> v{3, 4};    // 3, 4
+```
+
+Default constructors take precedence over initializer lists, which take precedence over other constructors
+
+To get the other constructor to run: **round bracket intialization**
+
+```C++
+vector<int> v(5);   // 0, 0, 0, 0, 0
+vector<int> v(3, 4);    // 4, 4, 4
+```
+
+A note on cost: item in an initializer list are stored in contiguous memory (begin method returns a pointer)
+- So we are using one array to build another (2 copies in memory)
+
+Also note:
+- Initializer lists are meant to be immutable
+- Do not try to modify their contents
+- Do not use them as standalone data structures
+- Only one allocation in vector, not several
+- No doubling + reallocating
+- If general, if you know how big your vector will be, you can save reallocation cost by requesting space up front
 
 ```C++
 template<typename T> class vector {
     ...
     public:
-        vector(): n{0}, cap{1}, theVector{static_cast<T*>(operator new(sizeof(T)))} {}
-        vector(size_t n, T x = T{}): 
-            n{n}, cap{n}, theVector{static_cast<T*>(operator new(n *sizeof(T)))} {
-            
-            for (size_t i = 0; i < n; ++i)
-                new(theVector + i) T(x);
+    ...
+    void reserve(size_t newCap) {
+        if (cap < newCap) {
+            T *newVec = new T[newCap];
+            for (size_t i = 0; i < n; ++i) newVec[i] = theVector[i];
+            delete[] theVector;
+            theVector = newVec;
+            cap = newCap;
         }
-
-        ...
-
-        void push_back(T x) {
-            increase_cap();
-            new(theVector + (n++)) T(x);
-        }
-
-        void pop_back() {
-            if (n) {
-                theVector[n-1].~T() // Must explicitly invoke destructor
-                --n;
-            }
-        }
-
-        ~vector() {
-            destroy_items();
-            operator delete(theVector);
-        }
-
-        void destroy_items() {
-            for (auto &x: *this)
-                x.~T();
-        }
+    }
 };
 ```
 
+**Exercise:** rewrite `vector` such that `push_back` uses `reserve` instead of `increaseCap`
+
+```C++
+vector<int> v;
+v.reserve(10);
+v.push_back(__);    // Can do 10 push_backs without needing to reallocate
+...
+```
+
 ---
-[Better Initialization << ](./problem_11.md) | [**Home**](../README.md) | [>> Less Copying](./problem_13.md) 
+[I want a vector of chars <<](./problem_10.md) | [**Home**](../README.md) | [>> I want a vector of Posns](./problem_12.md)

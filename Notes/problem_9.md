@@ -1,189 +1,275 @@
-[Efficient Iteration <<](./problem_8.md) | [**Home**](../README.md) | [>> I want a vector of chars](./problem_10.md)
+[Tampering << ](./problem_7.md) | [**Home**](../README.md) | [>> Staying in bounds](./problem_9.md) 
 
-# Problem 9: Staying in Bounds
-**2017-10-03**
+# Problem 8: Efficient Iteration
+**2017-09-28**
 
-```C++
-Vector v;
-v.push_back(4);
-v.push_back(5);
-
-v[2];   // Out of bounds! (undefined behaviour) - may or may not crash
-```
-
-Can we make this safer?
-
-Adding bounds checks to operator`[]` may be needlessly expensive.
-
-Could have a second, safer fetch operator:
+Consider the two implementations Vector and List
 
 ```C++
-class Vector {
-    ...
-    public:
-        int &at (size_t i) {
-            if (i <= n) return theVector[i];
-            // else what?
-        }
-};
-```
+vector v;
+v.push_back(___);
+...
 
-`v.at(2)` still wrong - what should happen?
-- Return any `int`, looks like non-error
-- Returning a non-`int`, not type correct
-- Crash the program - can we do better? Don't return. Don't crash
-
-**Solution:** raise an `exception`
-
-```C++
-class range_error {};
-
-class vector {
-    ...
-    public:
-        int &at(size_t i) {
-            if (i < n) return theVector[i];
-            else throw range_error{};   // Construct an object of range_error & "throw" it
-        } 
-};
-```
-
-- Client's options
-1. Do nothing
-    ```C++
-    vector v;
-    v.push_back(0);
-    v.at(1) // The exception will crash the program
-    ```
-1. Catch it
-    ```C++
-    try {
-        vector v;
-        v.push_back(0);
-        v.at(1);
-    } catch (range_error &r) {  // r is the thrown object, catch by reference saves a copy operation
-        // Do something
-    }
-    ```
-1. Let your caller catch it
-    ```C++
-    int f() {
-        vector v;
-        v.push_back(0);
-        v.at(1);
-    }
-    int g() {
-        try{
-            f();
-        } catch(range_error &r) {
-            // Do something
-        }
-    }
-    ```
-    - Exception will propogate through the callchain until a handler is found.
-    - Called **unwinding** the stack
-    - If no handler is found, program aborts (`std::terminate` gets called)
-    - Control resumes after the catch block (problem code is not retried)
-
-What happens if a constructor throws an exception?
-- Object is considered **partially constructed**
-- Destructor will not run on partially constructed object
-
-Ex.
-
-```C++ 
-
-class C {...};
-
-class D {
-    C a;
-    C b;
-    int *c;
-
-    public:
-        D() {
-            c = new int[100];
-            ...
-            if (...) throw something {};  // (*)
-        }
-
-        ~D() {
-            delete[] c;
-        }
-};
-
-D d;
-```
-
-- (\*) the `D` object is not fully constucted, so `~D()` will not run on d
-- But `a` and `b` are fully constucted so their destructors will run
-- So if a constructor wants to throw, it must clean itself
-
-```C++
-class D {
-    ...
-    public:
-        D() {
-            c = new int[100];
-            ...
-            if (...) {
-                delete[] c;
-                throw something {};
-            }
-        }
-    }
-} 
-```
-
-What happens if a destructor throws? 
-> Trouble
-
-- By default, program aborts immediately
-- `std::terminate`
-- If you really want a throwing destructor, tag it with `noexcept(false)` 
-
-```C++
-class myexception{};
-
-class C {
-    ...
-    public:
-        ~C(_) noexcept(false) {
-            throw myexception{};
-        }
-};
-```
-But watch out
-
-```C++
-void h() {
-    C c1;
+for (size_t i = 0; i < v.size(); ++i) {
+    std::cout << v[i] << std::endl;     // O(1)
 }
+```
 
-void g() {
-    C c2;
-    h();
+- Array access - efficient
+- O(n) traversal
+
+```C++
+list l;
+l.push_front(___);
+...
+
+for (size_t i = 0; i < l.size(); ++i) {
+    std::cout << l[i] << std::endl;     // O(n)
+}
+```
+
+- O(n^2) traversal
+- No direct access to "next" pointers, how can we do efficient iteration?
+
+- **Design Patterns**
+    - Well known solutions to well-studied problems
+    - Adapted to suit needs
+- **Iterator Pattern**
+    - Efficient iteration over a collection, without exposing the underlying structure
+
+**Idea:** Create a class that "remembers" where you are in the list (abstraction of a pointer)  
+**Inspiration:** C
+
+```C
+for (int *p = arr; p != arr + size; ++p) {
+    printf("%d\n", *p);
+}
+```
+
+```C++
+class list {
+    struct Node {...};
+    Node *theList;
+
+    public:
+        class iterator {
+            Node *p;
+
+            public:
+                iterator(Node *p): p{p} {}
+                bool operator!=(const iterator &other) const {return p != other.p}
+                int &operator*() {return p->data;}
+                iterator &operator++() {    // Prefix version
+                    p = p->next;
+                    return *this;
+                }
+        }
+
+        iterator begin() {return iterator{theList};}
+        iterator end() {return iterator{nullptr};}
 };
+```
+```C++
+list l;
 
-void f() {
-    try {
-        g();
-    } catch (myException &ex) {
+for (list::iterator it = l.begin(); it != l.end(); ++it) {
+    std::cout << *it << '\n';
+}
+```
+
+**Q:** Should `list::begin` and `list::end` be `const` methods?  
+**Consider:**
+
+```C++
+ostream &operator<<(ostream &out, const list &l) {
+    for (list::iterator it = l.begin(); it != l.end(); ++it) {
         ...
     }
+    ...
+}
+
+``` 
+
+Won't compile if `begin`/`end` are not `const`
+
+```C++
+ostream &operator<<(ostream &out, const list&l) {
+    for (...) {
+        out << *it << '\n';
+        ++*it;  // increment items in the list
+    }
 }
 ```
 
-1. Destructor for `c1` throws at the end of `h`
-1. Unwind through `g`
-1. Destructor for `c2` throws as we leave `g`
-    - No handler yet
-    - Now two unhandled exceptions
-    - Immediate termination guaranteed, `std::terminate` is called
+Will compile but shouldn't, the list is supposed to be `const`, but `*` returns as non-`const`
 
-Never let destructors throw, swallow the exception if necessary
+**Conclusion:** iteration over `const` is different from iteration over non-`const`
+- Make a second iterator class
 
-Also note that you can throw _any value_, not just objects
+```C++
+class list {
+    struct Node {...};
+    Node *theList;
+
+    public:
+        class iterator {
+            Node *p;
+
+            public:
+                iterator(Node *p): p{p} {}
+                bool operator!=(const iterator &other) const { return p != other.p; }
+                int &operator*() const { return p->data; }
+                iterator &operator++() {    // Prefix version
+                    p = p->next;
+                    return *this;
+                }
+        };
+
+        class const_iterator {
+            Node *p;
+
+            public:
+                const_iterator(Node *p): p{p} {}
+                bool operator!=(const const_iterator &other) { return p != other.p; }
+                const int &operator*() const { return p->data; }
+                const_iterator &operator++() {
+                    p = p->next;
+                    return *this;
+                }
+        };
+
+        iterator begin() { return iterator{the_list}; }
+        iterator end() { return iterator{nullptr}; }
+        const_iterator begin() const { return const_iterator{theList}; }
+        const_iterator end() const { return const_iterator {nullptr}; }
+};
+```
+
+Works now:
+
+```C++
+list::const_iterator it = l.begin();    // Mouthful
+```
+
+Shorter:
+```C++
+ostream &operator<<(...) {
+    for (auto it = l.begin(); it != l.end(); ++it) {
+        out << *it << '\n';
+    }
+
+    return out;
+}
+```
+
+Even shorter:
+
+```C++
+ostream &operator<<(___) {
+    for (auto n : l) { 
+        out << n << '\n';   
+    }
+
+    return out;
+}
+```
+
+This is a range-based `for` loop
+- Available for any class with:
+    - Methods (or functions) `begin()` and `end()` that return an iterator object
+    - The iterator class must support unary`*`, prefix`++`, and `!=`
+
+**Note:**
+- `for (auto n: l) ++n;`
+    - `n` is declared by value
+    - `++n` increments n, not the list items
+- `for (auto &n : l) ++n;`
+    -  `n` is a reference, will update list elements
+- `for (const auto &n : l) ____;`
+    - `const` reference, cannot be mutated
+
+One small encapsulation problem:
+
+**Client:** `list::iterator it {nullptr}`
+- Forgery, create an end iterator without calling `end();`
+
+
+**To fix:** make iterator constructor private  
+**BUT:** List can't create iterators either  
+**Solution:** _friendship_ <3
+
+```C++
+class list {
+    ...
+    public:
+        class iterator {
+            ...
+            iterator(Node *p) {}
+           
+            public:
+            ...
+            friend class list;  // list has access to all iterator's/const_iterator's implementation
+        };
+
+        class const_iterator {  // Same (friend class list)
+            ...
+        }
+};
+```
+
+Recall: Encapsulation + Iterators for linked list
+
+Can do the same for vectors:
+
+```C++
+class vector {
+    size_t size, cap;
+    int *theVector;
+    
+    public:
+        class iterator {
+            int *p;
+            ...
+        };
+
+        class const_iterator {
+            ...
+        };
+
+        iterator begin() {
+            return iterator{theVector};
+        }
+
+        iterator end() {
+            return iterator{theVector + n};
+        }
+
+        const_iterator begin() const {
+            return const_iterator{theVector};
+        }
+
+        const_iterator end() const {
+            return const_iterator{theVector + n};
+        }
+};
+```
+
+Limit friendships, they weaken encapsulation
+
+Could do this, OR:
+
+```C++
+typedef int *iterator;
+typedef const int *const_iterator;
 
 ---
-[Efficient Iteration <<](./problem_6.md) | [**Home**](../README.md) | [>> I want a vector of chars](./problem_10.md)
+
+using iterator = int*;
+using const_iterator = const int*;
+
+iterator begin() {return theVector;}
+iterator end() {return theVector + n;}
+```
+
+---
+[Tampering << ](./problem_7.md) | [**Home**](../README.md) | [>> Staying in bounds](./problem_9.md) 

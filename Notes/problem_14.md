@@ -1,211 +1,187 @@
-[Less Copying << ](./problem_13.md) | [**Home**](../README.md) | [>> Is vector exception safe?](./problem_15.md) 
+[I want a vector of Posns <<](./problem_12.md) | [**Home**](../README.md) | [>> Memory management is hard](./problem_14.md)
 
-# Problem 14: Memory management is hard!
-**2017-10-12**
+# Problem 13: Less copying!
+**2017-10-04**
 
-No it isn't.
-- Vectors do everything arrays can
-    - Grow as needed O(1) amortized time or better (reserve the sapce you need)
-    - Clean up automatically when they go out of scope
-    - Are tuned to minimize copying
-
-Just use vectors, and you'll never have to manage arrays again.
-C++ has enough abstraction facilites to make programming easier than C.
-
-But what about single objects?
-
+**Before:** 
 ```C++
-void f() {
-    Posn *p = new Posn{1, 2};
-    ...
-    delete p;   // Must deallocate the posn!
+void push_back(int n);
+```
+
+**Now:** 
+```C++
+void push_back(T x) {   // (1) If T is an object, how many times is T being copied?
+    increaseCap();
+    new(theVector + (n++)) T(x);   // (2)
 }
 ```
 
-First ask, do you really need to use the heap?
+If the arg is an lvalue:  
+- (1) is a copy constructor
+- (2) is a copy constructor
+- 2 copies, we want 1
 
-Could you have used the stack instead?
+If the arg is an rvalue:
+- (1) is a move constructor
+- (2) is a copy constructor
+- 1 copy, we want 0
 
+**fix:**
 ```C++
-void f() {
-    Posn p {1, 2};
-    ...
-
-}   // No cleanup necessary
-```
-
-But sometimes you do need the heap. Calling `delete` isn't so bad, but consider:
-
-```C++
-void f() {
-    Posn *p = new Posn{1, 2};
-
-    if (some condition) throw BadNews{};
-
-    delete p;  
+void push_back(T x) {
+    increaseCap(); 
+    new(theVector + (n++)) T(std::move(x));
 }
 ```
 
-`p` is leaked if `f` throws (unacceptable).
+**lvalue:** copy + move  
+**rvalue:** move + move
 
-Raising and handling an exception should not corrupt the program. 
-- We desire exception safety.
+If `T` doesn't have a move constructor: 2 copies
 
-Leaks are a corruption of your program's memory. This will eventualy degrade performance and crash the program.
-
-If a program cannot recover from an expression without corrupting its memory, what's the point of recovering?
-
-What constitues exception safety? 3 levels:
-1. **Basic guarantee** - once an exception has been handled, the program is in some valid state, no leaked memory, no corrupted data structures, all invariants are maintained.
-1. **Strong guarantee** - if an exception propogates out of a function `f`, then the state of the program will be as if `f` had not been called
-    - `f` either succeeds completely or not at all.
-1. **Nothrow guarantee** - a function `f` offers the nothrow guarantee if `f` never emits an exceptions and _always_ accomplishes its purpose
+**Better:** take `T` by reference
+```C++
+void push_back(const T &x) {    // No copy, no move
+    increaseCap();
+    new(theVector + (n++)) T(x);   // Copy constructor
+}
 
 
-Will revist, but now coming back to `f`:
+void push_back(T &&x) { // No copy, no move
+    increaseCap();
+    new(theVector + (n++)) T(std::move(x));
+}
+```    
+
+**lvalue:** 1 copy  
+**rvalue:** 1 move
+
+If no move constructor: 1 copy
+
+Now consider:
+```C++
+Vector<Posn> v;
+v.push_back(Posn {3, 4});
+```
+
+1. Constructor call to create the Posn object
+1. Copy or move constructor into the vector (depending on whether Posn has a move constructor)
+1. Destructor call on the temporary object
+
+Could eliminate (1) and (3) if we could get vector to create the object instead of the client
+- Pass constructor args to the vector and not the actual object
+- How? Soon, but first...
+
+### A note on template functions
+
+Consider: `std::swap` seems to work on all types
+
+**Implementation:**
+```C++
+template<typename T> void swap(T &a, T&b) {
+    T tmp{std::move(a)}
+    a = std::move(b);
+    b = std::move(tmp);
+}
+```
 
 ```C++
-void f() {
-    Posn *p = new Posn {1, 2};
+int x = 1;
+int y = 2;
+swap(x, y)  // Equiv swap<int>(x, y);
+```
 
-    if (some condition) {
-        delete p;
-        throw BadNews{};
+Don't have to say `swap<int>`, C++ can deduce this from the types of `x` and `y`
+
+In general, only have to say `f<T>(...)` if `T` cannot be deduced from the args
+
+Type deduction for template args follows the same rules as type deduction for `auto`
+
+### Back to Vector passing constructor args
+
+- We don't know what types constructor args should have
+- `T` could be any class, could have several constructors
+
+Idea - member template function (like `swap`, it could take anything)
+
+**2nd Problem:** how many constructor args?
+
+**Solution:** _variadic templates_ (similar to Racket macros)
+
+```C++
+template<typename T> class vector {
+    ...
+    public:
+    ...
+    template<typename... Args> void emplace_back(Args... args) {
+        increaseCap();
+        new(theVector + (n++)) T (args...);
     }
+};
+```
 
-    delete p;   // Duplicated effort! Memory management is even harder!
+In this case, `...` in template actually represents a variable amount of arguments
+
+
+`Args` is a _sequence_ of type vars denoting the type of the actual args of `emplace_back`  
+`args` is a _sequence_ of program vars denoting the actual args of `emplace_back`
+
+```C++
+vector<Posn> v;
+v.emplace_back(3, 4);
+``` 
+
+**Problem:** args is being taken by value, can we take args by reference? (lvalue or rvalue reference?)
+
+```C++
+template<typename... Args> void emplace_back(Args&&... args) {
+    increaseCap();
+    new(theVector + (n++)) T (args...);
 }
 ```
 
-Want to guarantee that `delete p;` happens no matter what.
-What guarantee does C++ offer?
-- Only one: that destructors for stack-allocated objects will be called when the objects go out of scope.
+Special rules here: `Args&&` is a **universal reference** (officially: **forwarding reference**)
+- Can point to an lvalue or an rvalue
+- Must have the form `T&&`, where `T` is the type arg being deduced for the current template function call
 
-So create a class with a destructor that deletes the pointer.
-
+Ex.
 ```C++
-template<typename T> class unique_ptr {
-        T *p;
+template<typename T> class c {
     public:
-        unique_ptr(T *p): p{p} {}
-        ~unique_ptr() { delete p; }
-        T *get() const { return p; }
-        T *release() {
-            T *q = p;
-            p = nullptr;
-            return q;
-        }
-};
-```
-```C++
-void f() {
-    unique_ptr<Posn> p {new Posn{1, 2}};
-
-    if (some condition) throw BadNews{};
-
-}
-```
-
-That's it! Less memory management effort than we started with!
-
-Using `unique_ptr` can use `get` to fetch the raw pointer.
-
-**Better** - make `unique_ptr` act like a pointer.
-
-```C++
-template<typename T> class unique_ptr {
-        T *p;
-    public:
-        ...
-        T &operator*() const { return *p; }
-
-        T *operator->() const { return p; }
-
-        explicit operator bool() const { return p; }    // Explicit prohibits bool b = p;
-        void reset(T *p1) {
-            delete p;
-            p = p1;
-        }
-
-        void swap(unique_ptr<T> &x) {
-            std::swap(p, x.p);  // Even though p is private, we are still inside the unique_ptr class, so we can access other unique_ptr's private fields
-        }
+        template<typename U> void g(U&& x); // Universal
+        template<typename U> void h(const U&& x);   // Not universal (because of const)
+        void j(T&& x);  // Not universal (not being deduced, T is already known)
 };
 ```
 
-Overloading `->` is weird.
-- On the left is a pointer and on the right is a pointer
-- No syntax for specifying something is a field name
-- Thus you specify what the pointer is and C++ will automatically grab the field for you
-
-But consider:
-
-```C++
-unique_ptr<Posn> p {new Posn{1, 2}}; 
-unique_ptr<Posn> q = p;
-```
-
-Two pointers to the same object! Can't both delete it! (Undefined behaviour)
-
-
-**Solution:** copying `unique_ptr`s are not allowed. Moving is ok though.
-
-```C++
-template<typename T> class unique_ptr {
-    ...
-    public:
-        unique_ptr(const unique_ptr &other) = delete;
-        unique_ptr &operator=(const unique_ptr &other) = delete;
-        unique_ptr(unique_ptr &&other): p{other.p} { other.p = nullptr; }
-        unique_ptr &operator=(unique_ptr &&other) {
-            swap(other);
-            return *this;
-        }
-};
-```
-
-**Note:** this is how copying of streams is prevented.
-
-What happens when you pass a `unique_ptr` by value?
-
-```C++
-void f(unique_ptr<Posn> p);
-
-unique_ptr<Posn> q = {...};
-f(q);   // Will not compile!
-f(std::move(q)) // However this will work, but then q loses what it points to
-```
-
-Passing a `unique_ptr` by value = transfer of ownership
-
-**Small exception safety issue:**
+Now recall:
 
 ```C++
 class C {...};
-void f(unique_ptr<C> x, int y) {...}
-int g() {...}
-f(unique_ptr<C> {new C;}, g());
-```
-
-C++ does not enforce order of argument evaluation
-It could be:
-1. `new C`
-1. `g()`
-1. `unique_ptr<c> {1.}`
-
-Then what if `g` throws? 1. is leaked.
-
-We can fix this by making 1. and 3. inseparable using a helper function
-
-```C++
-template<typename T, typename... Args> unique_ptr<T> make_unique(Args&&... args) {
-    return unique_ptr<T> { new T(std::forward<Args> (args)...) };
+void f(C&& x) { // rvalue reference - x points  to an rvalue, but x is an lvalue
+    g(x);   // x is passed as an lvalue to g
 }
 ```
 
-`unique_ptr` is an example of the C++ idiom: **Resource Acquisition Is Initialization (RAII)**
-- Any resource that must be properly released (memory, file handle, etc.) should be wrapped in a stack-allocated object whose destructor frees it
-- Ex. `unique_ptr`, `ifstream`/`ofstream` aquire the resource when the object is initialized and release it when the object's destructor runs
+If you want to preserve the fact that `x` is an rvalue reference, so that a "moving" version of `g` is called (if it exists):
+
+```C++
+void f(C&& x) {
+    g(std::move(x));
+}
+```
+
+In the case of `args`, we don't know if the args are lvalues, rvalues, or a mix.  
+Want to call `move` on `args` if and only if the args are rvalues.
+
+```C++
+template<typename... Args> void emplace_back(Args&&... args) {
+    increaseCap();
+    new(theVector + (n++)) T (std::forward<Args> (args)...);
+}
+```
+
+`std::forward` calls `std::move` if its argument is an rvalue reference, else does nothing
 
 ---
-[Less Copying << ](./problem_13.md) | [**Home**](../README.md) | [>> Is vector exception safe?](./problem_15.md) 
+[I want a vector of Posns <<](./problem_12.md) | [**Home**](../README.md) | [>> Memory management is hard](./problem_14.md)
