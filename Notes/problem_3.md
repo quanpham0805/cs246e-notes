@@ -86,26 +86,39 @@ Including old C headers: `#include <stdio.h>` -> `#include <cstdio>`
 - Preprocessor variable
 - All subsequent occurences of VAR are replaced with VALUE
 
-Ex.
+**Ex 1.**
 ```C++
 #define MAX 10
 int x[MAX];
 ```
 Translates to `int x[10];`
 
-Ex 2.
-_myprogram.cc_
+- This is considered as a "cheat" constant because C was the 70s tech, having a constant variable might be costly, and so instead of having the variable present at runtime, just have it replaced at compile time.
+- Nowadays these are so cheap people just don't care about it. And C++ has its own built in way of expressing compile time constant, that the language actually understand, instead of that hacky way. Therefore, C define constant is obsolete.
+
+**Ex 2.**
 
 ```C++
-int main() {
-    int x[MAX];
-    ...
-} 
+#define ever(;;)
+// ...
+for ever { /* ... */}
 ```
+
+- Just a simple text substitution.
 
 Instead of defining the constant inside the code, we can use a command line arg
 
+```C++
+    int main() {
+        int x[MAX]; // MAX not defined in source code
+    }
+```
+
+- Rather than having to touch the source file or trusting anybody else to touch my source file, we can do:
 - `g++14 -DMAX=10 myprogram.cc`
+- What this does is it makes a `#define` on the command line.
+
+**Ex 3.**
 
 ```C++
 #if SECURITYLEVEL == 1
@@ -115,8 +128,8 @@ Instead of defining the constant inside the code, we can use a command line arg
 #endif
     publicKey;
 ```
-
-Choose one of the options to present to the compiler. `#else` also exists
+- This is called **conditional compilation**. If the condition is true, the compiler gets to see the code. Otherwise, it does not even go through at all i.e, it transformes the code before the it reaches the compiler.
+- Choose one of the options to present to the compiler. `#else` also exists
 
 **Special Case:**
 ```C++
@@ -127,7 +140,7 @@ Choose one of the options to present to the compiler. `#else` also exists
 
 Fixing the include problem: `#include guards`
 
-_node.h_
+#### node.h
 ```C++
 #ifndef NODE_H  // If NODE\_H is not defined"
 #define NODE_H  // Value is the empty string
@@ -135,18 +148,16 @@ _node.h_
 #endif
 ```
 
-First time _node.h_ is included, symbol NODE_H not defined, so file is included.
-
-Subsequently, symbol is defined, so file is supressed.
+Fixing the double include problem: "include guard"
+- First time _node.h_ is included, symbol `NODE_H` not defined, so file is included.
+- Subsequently, symbol is defined, so file is supressed.
 
 **ALWAYS**
-
-- Put `#include guards` in header files
+- Put `#include guards` in header files (`.h`)
 
 **NEVER**
-
-- Compile.h files
-- Include .cc files
+- Compile `.h` files
+- Include `.cc` files
 
 Now what if someone writes:
 
@@ -155,15 +166,14 @@ struct Node {
    int data;
    Node *left, *right; 
 };
-
-size_t size(Node *n); // Size of tree
+size_t size(Node *n); // size of tree
 ```
 
 You can't use both in the same program
 
 **Solution:** namespaces
 
-_list.h_
+#### list.h
 
 ```C++
 namespace List {
@@ -171,12 +181,11 @@ namespace List {
         int data;
         Node *next;
     };
-
     size_t size(Node *n); 
 }
 ```
 
-_tree.h_
+#### tree.h
 
 ```C++
 namespace Tree {
@@ -184,42 +193,64 @@ namespace Tree {
         int data;
         Node *left, *right;
     };
-
     size_t size(Node *n); 
 }
 ```
 
-_list.cc_
+#### list.cc
 
 ```C++
 #include "list.h"
 
+// one style
 size_t List::size(Node *n) {  // List::Node *n is not necessary b/c the function is in the namespace
-    ...
+    // ...
 }
 ```
 
-_tree.cc_
+#### tree.cc
 
 ```C++
 #include "tree.h"
 
-size_t Tree::size(Node *n) { 
-    ...
+// another style
+namespace Tree {
+    size_t size(Node *n) { 
+        // ...
+    }
+}
+```
+
+Now we can do in our main file:
+
+#### main.cc
+
+```C++
+#include "list.h"
+#include "tree.h"
+
+int main()
+{
+    List::Node *ln = new List::Node {1, nullptr};
+    Tree::Node *tn = new Tree::Node {2, nullptr, nullptr};
+    // ...
+    delete ln; delete tn;
 }
 ```
 
 **Namespaces are open**
+- It means, anyone can add items to any namespace
 
-Anyone can add items to any namespace
-
-_some\_other\_file.h_
+#### some\_other\_file.h
 
 ```C++
 namespace List {
+    int some_other_fn();
     struct some_other_struct {...};
 }
 ```
+
+Exception: adding members to namespace `std` is not permitted.
 
 ---
 [Separate compilation <<](./problem_2.md) | [**Home**](../README.md) | [>> Linear Collections and Memory Management](./problem_4.md) 
