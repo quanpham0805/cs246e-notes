@@ -3,7 +3,7 @@
 # Problem 3: Linear Collections and Modularity
 ## **2021-09-14**
 
-### Linked lists and arrays
+### **Linked lists and arrays**
 
 **Linked List**
 
@@ -73,7 +73,7 @@ Won't compile, struct defined twice
 
 How do we prevent this?
 
-### C Preprocessor
+### **C Preprocessor**
 
 Transforms the program before the compiler sees it
 

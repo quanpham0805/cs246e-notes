@@ -108,7 +108,7 @@ types: `std::istream`: (cin) or `std::ostream`: (cout, cerr)
 These operators return cin/cout so they can be chained:
 From above: `std::cin >> x >> y;`
 
-### File Access
+### **File Access**
 ```C++
 std::ifstream f{"name-of-file"};  // ofstream for output
 char c;
@@ -201,7 +201,7 @@ C and C++ are pass-by-value languages, so scanf needs the address of `x` in orde
 So why is it not `cin >> &x`?
 C++ has another small pointer-like type
 
-### References
+### **References**
 
 ```C++
 int y = 10
