@@ -1,30 +1,60 @@
-[Linear Collections and Modularity <<](./problem_2.md) | [**Home**](../README.md) | [>> Copies](./problem_4.md) 
+[Linear Collections and Modularity <<](./problem_3.md) | [**Home**](../README.md) | [>> Copies](./problem_5.md)
 
-# Problem 3: Linear Collections and Memory Management
-**2017-09-14**  
+# Problem 4: Linear Collections and Memory Management
+## **2021-09-16**
 **Readings:** 7.7.1, 14, 16.2 
 
 **Arrays**
 `int a[10];`
-
 - On the stack, fixed size
+```
+┏━━━━━━━━━━━━━┓
+┣━━━━━━━━━━━━━┫
+┣━━━━━━━━━━━━━┫
+┣━━━━━━━━━━━━━┫
+┣━━━━━━━━━━━━━┫
+┣━━━━━━━━━━━━━┫
+┗━━━━━━━━━━━━━┛
+---------------
+```
 
 On the heap:
-`int *p = new int[10];`
+- `int *p = new int[10];`
+```
+┏━━━━━━━━━━━━━┓
+┣━━━━━━━━━━━━━┫<┅┅┅┅┅┅┅┅┅┅┅┅┓
+┣━━━━━━━━━━━━━┫             ┇
+┣━━━━━━━━━━━━━┫             ┇
+┣━━━━━━━━━━━━━┫             ┇
+┣━━━━━━━━━━━━━┫             ┇
+┗━━━━━━━━━━━━━┛ // stack    ┇
+```                         ┇
+┏━━━━━━━━━━━━━┓ // heap     ┇
+┣━━━━━━━━━━━━━┫             ┇
+┣━━━━━━━━━━━━━┫             ┇
+┗━━━━━━━━━━━━━┛ p ┅┅┅┅┅┅┅┅┅┅┛
+---------------
+```
 
-To delete:
-`delete[] p;`
+---------------
+- To delete:  `delete[] p;`
+- Use `new` with `delete`, and `new [...]` with `delete[]`
+- Mismatching these is undefined behaviour
 
-Use `new` with `delete`, and `new [...]` with `delete[]`
+**Why do we have a separate form of delete?**
+> Philosophy in C++: If you are not gonna use it, you shouldn't have to pay for it.
+- If you have an array of items, and u need to deallocate that array, you need to know how many items there were / how big the memory we need to get rid of. Therefore, when you declare that array, you need to store how much memory you used.
+- But in special case of allocating 1 object, not an array, then why should I pay for that extra cost of saying "hey this is an object of size 1". So instead, C++ said "I know how big one object is" and so the compiler has the option if you are allocating one object, to not store that extra size information becuase its known. Therefore, the ordinary delete would not looking for sizes because it knows it was deleting one thing. Hence, having a separate form of delete for single object allows for potential optimization where you don't have to worry about checking sizes.
 
-Mismatching these is undefined behaviour
+**Problem:** what if our array isn't big enough (when deleting)?
 
-**Problem:** what if our array isn't big enough
-Note: no `realloc` for `new`/`delete`  
+Note: no `realloc` for `new`/`delete` 
 
-Use abstraction to solve the problem:
+Use abstraction to solve the problem
 
-_vector.h_
+- Another philosophy here is, C++ is hard, and we are going to do all the hard work so that our users (in this case, not the application users but rather the developer that uses our code) have a pleasant time coding in C++.
+
+#### vector.h
 
 ```C++
 #ifndef VECTOR_H
@@ -32,29 +62,21 @@ _vector.h_
 
 namespace CS246E {
     struct vector {
-        size_t size, cap;
         int *theVector;
-    }
-};
+        size_t size, cap;
+    };
 
-const size_t startsize = 1;
-
-vector make_vector();
-
-size_t size(const vector &v);
-
-int &itemAt(const vector &v, size_t i);
-
-void push_back(const vector &v, int x);
-
-void pop_back(const vector&v);
-
-void dispose(vector &v);
-
+    vector make_vector();
+    size_t size(const vector &v);
+    int &itemAt(const vector &v, size_t i);
+    void push_back(const vector &v, int x);
+    void pop_back(const vector&v);
+    void dispose(vector &v);
+}
 #endif
 ```
 
-_vector.cc_
+#### vector.cc
 
 ```C++
 #include "vector.h"
@@ -76,7 +98,7 @@ namespace {  // Anonymous namespace makes the function only visible to file (sam
 }
 
 CS246E::vector CS246E::make_vector() {
-    vector v {0, startSize, new int[startSize]};
+    vector v {new int[1], 0, 1};
     return v;
 }
 
@@ -90,12 +112,12 @@ int &CS246E::itemAt(const vector &v, size_t i) {
 
 void CS246E::push_back(vector &v, int n) {
     increaseCap(v);
-    v.theVector[v.size++] = n;
+    v.theVector[v.size ++] = n;
 }
 
 void CS246E::pop_back(vector &v) {
     if (v.size > 0) {
-        --v.size;
+        -- v.size;
     }
 }
 
@@ -104,7 +126,7 @@ void CS246E::dispose(vector &v) {
 }
 ```
 
-_main.cc_
+#### main.cc
 
 ```C++
 #include "vector.h"
@@ -123,10 +145,9 @@ int main() {
 
 **Question:** why don't we have to say `CS246E::push_back`, `CS246E::itemAt`, `CS246E::dispose?`
 
-**Answer:** Argument-Dependent Lookup (ADL) - aka König lookup
+**Answer:** Argument-Dependent Lookup (ADL) - aka Koenig lookup
 
-- If the type of a function f's argument belongs to a namespace n, then C++ will search the namespace n,
-as well as the current scope, for a function matching f
+- If the type of a function f's argument belongs to a `namespace n`, then C++ will search the `namespace n`, as well as the current scope, for a function matching f
 
 This is the reason why we can say
 ```C++
@@ -138,9 +159,9 @@ std::operator<< (std::cout, x)
 - **Problems** 
     - What if we forget to call `make_vector`? (uninitialized object)
     - What if we forget to call `dispose`? (memory leak)
-- How can we make this more robust?
+- How can we make this more robust (easier to do correctly and harder to make it incorrect)?
 
-## Introduction to Classes
+### **Introduction to Classes**
 First concept in OOP - functions inside structs
 
 ```C++
@@ -148,14 +169,14 @@ struct Student {
     int assns, mt, final;
     
     float grade() {
-        return assns*0.4 + mt*0.2 + final*0.4;
+        return assns * 0.4 + mt * 0.2 + final * 0.4;
     }
 };
 ```
 
-- Structs that can contain functions - **classes**
-- Functions inside structs - **methods**
-- Instances of a class - **objects**
+- Structures that can contain functions - called **classes**
+- Functions inside of structs - called **methods**
+- Instances of a class - called **objects**
 
 ```C++
 Student bob {90, 70, 80};
@@ -168,26 +189,23 @@ What do `assns`, `mt`, `final`, mean with `grade() {...}`?
 
 - Fields of the _current_ object, the receiver of the method call (ie. `bob`)
 
-Formally, methods differ form functions in that methods have an implicit parameter called `this`, that is 
-a pointer to the receiver object.
+Formally, methods differ from functions in that methods take an implicit parameter called `this`, that is  a pointer to the receiver object.
+- `bob.grade()` gets `this == &bob`
 
-`this == &bob`
-
-Could hae written (equivalent):
+Could have written (equivalent):
 
 ```C++
 struct Student {
-    ...
-
+    // ...
     float grade() {
-        return this->assns * 0.4
-                + this->mt * 0.2
-                + this->final * 0.4;
+        return this->assns * 0.4 + this->mt * 0.2 + this->final * 0.4;
     }
 };
 ```
 
-## Initializing objects
+## 2021/09/21
+
+### **Initializing objects**
 ```C++
 Student bob {90, 70, 80}
 ```
@@ -469,4 +487,4 @@ int main() {
 ```
 
 ---
-[Linear Collections and Modularity <<](./problem_2.md) | [**Home**](../README.md) | [>> Copies](./problem_4.md) 
+[Linear Collections and Modularity <<](./problem_3.md) | [**Home**](../README.md) | [>> Copies](./problem_5.md)
