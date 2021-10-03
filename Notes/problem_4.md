@@ -1,4 +1,4 @@
-[Linear Collections and Modularity <<](./problem_3.md) | [**Home**](../README.md) | [>> Copies](./problem_5.md)
+[Linear Collections and Modularity <<](./problem_3.md) | [**Home**](../README.md) | [>> The Copier is broken!](./problem_5.md)
 
 # Problem 4: Linear Collections and Memory Management
 ## **2021-09-16**
@@ -202,11 +202,17 @@ struct Student {
     }
 };
 ```
+or 
+```C++
+Student::float grade() {
+    return this->assns * 0.4 + this->mt * 0.2 + this->final * 0.4;
+}
+```
 
 ## 2021/09/21
 
 ### **Initializing objects**
-```C++
+```C
 Student bob {90, 70, 80}
 ```
 
@@ -239,15 +245,20 @@ Student bob {90, 70, 80};
 Student bob = Student{90, 70, 80};
 ```
 
+Unified initialization using braces:
+```C++
+int x{5}; // this is possible and is similar to int x = 5;
+```
+
 **Heap:**
 ```C++
 Student *p = new Student{90, 80, 70};
 delete p;
 ```
-- **Advantages of constructors:**
-    - Default parameters
-    - Overloading
-    - Sanity checks
+**Advantages of constructors:**
+- Default parameters
+- Overloading, as long as signatures are different
+- Sanity checks, making sure the initialization makes sense and if they don't, try to correct them somehow.
 
 ex.
 
@@ -264,43 +275,49 @@ Student newKid; // 0, 0, 0
 ```
 
 **Note:** Every class comes with a **default constructor** (zero argument constructor)
+- The default constructor will try to initialize any fields that are objects by calling their own constructor.
 
 ex.
-
 ```C++
-Node n;  // Default constructor (constructs all fields that are objects), does nothing in this case
+Node n;  // Default constructor, Node has an int and a pointer in which both are not objects, so default constructor does nothing in this case.
 ```
-
 This goes away if you write any constructor
 
 Ex.
-
 ```C++
 struct Node {
     int data;
-    Node *next;
+    Node* next;
 
-    Node (int data, Node *next = nullptr) {
-        ...
+    Node (int data, Node* next = nullptr) {
+        // ...
     }
 };
 
 Node n {3};  // GOOD
-Node n;  // BAD - no default constructor
+Node n;  // BAD - no default constructor, won't compile
+```
+The ctor now can accept either 1 or 2 arguments, but not 0 because it's not the default.
+
+The first two are equivalent:
+```C++
+Node n{};
+Node n;
+Node n(); // but watch out for this, this is prototype for function
 ```
 
-## Object creation protocol
+### **Object creation protocol**
 
 When an object is created, there are 4 steps:
 
-1. Space is allocated
+1. Space is allocated, we need space to hold it.
 2. (later)
-3. Fields are constructeed in declaration (field constructors called for fields that are objects)
+3. Fields are constructeed in declaration order (field constructors are called for fields that are objects)
 4. Constructor body runs
 
 Field initialization should happen in step 3, but constructor body happens in step 4
 
-Consequence: object fields are intialized twice:
+Consequence: object fields are intialized twice (step 4 is considered assignment step):
 
 ```C++
 #include <string>
@@ -330,6 +347,9 @@ struct Student {
     }
 }
 ```
+where the inside is the params, and the outside is the class fields.
+
+Changing the order in the MIL will not change the order in which the fields are initialized, they will be in declaration order.
 
 MIL _must_ be used for fields that are 
 
@@ -342,35 +362,35 @@ In general, it should be used as much as possible.
 Careful: single argument constructors
 ```C++
 struct Node {
-    Node(int data, Node *next = nullptr): ... {}
+    Node(int data, Node* next = nullptr): data{data}, next{next} {}
 }
 ```
 
-- Single argument constructors create implicit constructors
+- Single argument constructors create implicit conversions
 
 ```C++
 Node n {4};     // OK
 Node n = 4;     // OK - implicity converted from int to Node
 
 void f(Node n);
-f(4); // OK - maybe trouble
+f(4); // Will compile - maybe trouble
 ```
 
 However you can add an `explicit` keyword to disable the implicit conversion
 
 ```C++
 explicit struct Node {
-    Node(int data, Node *next = nullptr): ... {}
+    Node(int data, Node* next = nullptr): ... {}
 }
 
 Node n {4};  // OK
-Node n = 4;  // BAD
+Node n = 4;  // BAD, won't compile
 
-f(4) // BAD
+f(4) // BAD, won't compile
 f(Node {4}) // OK
 ```
 
-## Object Destructor
+### **Object Destructor**
 
 A method called the **destructor** (dtor) runs automatically
 
@@ -384,17 +404,16 @@ A method called the **destructor** (dtor) runs automatically
 ```C++
 struct Node {
     int data;
-    Node *next;
+    Node* next;
 };
 ```
 
 In this case the built-in destructor does nothing because neither field is an object
 
 If we have:
-
 ```C++
-Node *n = new Node {3, new Node {4, new Node {5, nullptr}}}
-delete n;  // Only deletes the first node (memory leak!)
+Node* n = new Node {3, new Node {4, new Node {5, nullptr}}}
+delete n;  // only deletes the first node (memory leak!)
 ```
 
 We can fix this by writing our own destructor:
@@ -410,9 +429,11 @@ struct Node {
 
 delete n;  // Now frees the whole list
 ```
+- This is recursion, it does consume stack space, base case is when `next = nullptr`, in which `delete nullptr` is safe.
+- If you run out of stack space, you are probably using wrong data structure.
+- We can avoid this with encapsulation.
 
 Also:
-
 ```C++
 {
     Node n {1, new Node {2, new Node {3, nullptr}}};
@@ -421,10 +442,11 @@ Also:
 
 Objects:
 
+- Proper constructions and destructions of objects
 - A constructor always runs when they are created
 - A destructor always runs when they are destroyed
 
-_vector.h_
+#### vector.h
 
 ```C++
 #ifndef VECTOR_H
@@ -446,7 +468,7 @@ namespace CS246E {
 #endif
 ```
 
-_vector.cc_
+#### vector.cc
 
 ```C++
 #include "vector.h"
@@ -474,7 +496,7 @@ CS246E::vector::~vector() {
 }
 ```
 
-_main.cc_
+#### main.cc
 
 ```C++
 int main() {
@@ -487,4 +509,4 @@ int main() {
 ```
 
 ---
-[Linear Collections and Modularity <<](./problem_3.md) | [**Home**](../README.md) | [>> Copies](./problem_5.md)
+[Linear Collections and Modularity <<](./problem_3.md) | [**Home**](../README.md) | [>> The Copier is broken!](./problem_5.md)

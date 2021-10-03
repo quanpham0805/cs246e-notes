@@ -10,8 +10,8 @@ reading sections are referenced to this book.
 1. [F2021 updated] [Program Input / Output](Notes/problem_1.md)
 1. [F2021 updated] [Separate compilation](Notes/problem_2.md)
 1. [F2021 updated] [Linear Collections and Modularity](Notes/problem_3.md)
-1. [Linear Collections and Memory Management](Notes/problem_4.md)
-1. [Copies](Notes/problem_5.md)
+1. [F2021 updated] [Linear Collections and Memory Management](Notes/problem_4.md)
+1. [The Copier is broken!](Notes/problem_5.md)
 1. [Moves](Notes/problem_6.md)
 1. [I want a constant vector](Notes/problem_7.md)
 1. [Tampering](Notes/problem_8.md)
@@ -49,6 +49,8 @@ reading sections are referenced to this book.
 
 ## Discussions
 1. [Modules](Notes/discussion_1.md)
+1. [More modules](Notes/discussion_2.md)
+1. [Tiny optimizations](Notes/discussion_3.md)
 
 ## Index
 Work in progress (feel free to contribute)!
