@@ -38,12 +38,13 @@ struct Node {  // Vector: exercise (easy), we doing for Node
     // ...
     Node (const Node &other): 
         data{other.data}, 
-        next{other.next ? new Node{*(other.next)} : nullptr} {}
+        next{other.next ? new Node{*(other.next)} : nullptr} {} 
+        // note: this is recursion because {} is assignment
 };
 ```
 
 ## **2021-09-23**
-
+However, we are not done with copy. Say, we want to assign rather than creating a new object:
 ```C++
 Vector v;
 Vector w;
@@ -59,9 +60,9 @@ w = v;  // Copy, but not a construction
 struct Node {
     Node &operator=(const Node &other) {
         data = other.data;
+        delete next; // avoid leaks
         next = other.next ? new Node{*(other.next)} : nullptr;
-
-        return *this;
+        return *this; // `this` is a pointer to an object, `*this` to deref
     }
 };
 ```
@@ -73,19 +74,20 @@ Consider:
 Node n {...};
 n = n;
 ```
+- The `delete` deleted itself, and while assigning to itself is not common, assigning 2 aliases of the same object is common.
+- Must always ensure the operator = works in the case of self assignment
 
-Destroys `n`'s data and then copies it. Must always ensure the operator = works in the case of self assignment
-
+Another try
 ```C++
 Node &Node::operator=(const Node &other) {
-    if (this != &other) {
-        data = other.data;
-        next = other.next ? new Node{*other.next} : nullptr;
-    }
-
+    if (this == &other) return *this;
+    data = other.data;
+    delete next; // avoid leaks
+    next = other.next ? new Node{*(other.next)} : nullptr;
     return *this;
 }
 ```
+- This still is problematic as it only checks if the 2 things are exactly equal, but this `other` can be a sublist of `this`, but that's a discussion for encapsulation
 
 **Alternative: copy-and-swap idiom**
 
@@ -96,15 +98,15 @@ struct Node {
     ...
     void swap(Node &other) {
         using std::swap;
+        // the next two lines, other is a completely new object and hence we get a deep copy
         swap(data, other.data);
         swap(next, other.next);
     }
 
     Node &operator=(const Node &other) {
-        Node tmp = other;
-        swap(tmp);
-
-        return *this;
+        Node tmp = other; // relies on a working copy constructor
+        swap(tmp); // then in this function, old me is swapped with tmp, which is new thing
+        return *this; // and finally, this invokes destructor on old me, cleaning up.
     }
 };
 ```

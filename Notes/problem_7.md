@@ -1,7 +1,7 @@
-[Moves << ](./problem_5.md) | [**Home**](../README.md) | [>> Tampering](./problem_7.md) 
+[Moves << ](./problem_6.md) | [**Home**](../README.md) | [>> Tampering](./problem_8.md) 
 
 # Problem 6: I want a constant vector
-**2017-09-26**
+## **2021-09-23**
 
 Say we want to print a vector:
 
@@ -10,27 +10,29 @@ ostream &operator <<(ostream &out, const Vector &v) {
     for (size_t i = 0; i < v.size(), ++i) {
         out << v.itemAt(i) << " ";
     }
+    return out;
 }
 ```
-
-WON'T COMPILE!!! (lushman pls)
-
+WON'T COMPILE!!!
 - Can't call `size()` and `itemAt()` on a const object. What if these methods change fields?
+- C++ is very protective of const, and we need to promise those methods will not change fields
 - Since they don't, declare them as `const`
 
 ```C++
 struct vector {
-    ...
-    size_t size() const;    // Means these methods will not modify fields
-    int &itemAt(size_t i) const;    // Can be called on const objects
-    ...
+    // ...
+    size_t size() const;         // Means these methods will not modify fields
+    int &itemAt(size_t i) const; // Can be called on const objects
+    // ...
 };
 
-size_t vector::size() const {return n};
-int &vector:itemAt(size_t i) const {return theVector[i];}
+size_t vector::size() const { return n };
+int &vector:itemAt(size_t i) const { return theVector[i]; }
 ```
 
 Now the loop will work.
+
+## **2021-09-28**
 
 BUT:
 
@@ -96,4 +98,4 @@ ostream &operator<<(ostream &out, const vector &v) {
 ```
 
 ---
-[Moves << ](./problem_5.md) | [**Home**](../README.md) | [>> Tampering](./problem_7.md) 
+[Moves << ](./problem_6.md) | [**Home**](../README.md) | [>> Tampering](./problem_8.md) 
