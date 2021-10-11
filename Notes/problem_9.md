@@ -1,41 +1,39 @@
-[Tampering << ](./problem_7.md) | [**Home**](../README.md) | [>> Staying in bounds](./problem_9.md) 
+[Tampering << ](./problem_8.md) | [**Home**](../README.md) | [>> Staying in bounds](./problem_10.md) 
 
-# Problem 8: Efficient Iteration
-**2017-09-28**
+# Problem 9: Efficient Iteration
+## **2017-09-28**
 
 Consider the two implementations Vector and List
-
 ```C++
 vector v;
 v.push_back(___);
-...
+// ...
 
 for (size_t i = 0; i < v.size(); ++i) {
     std::cout << v[i] << std::endl;     // O(1)
 }
 ```
-
 - Array access - efficient
 - O(n) traversal
 
 ```C++
 list l;
 l.push_front(___);
-...
+// ...
 
 for (size_t i = 0; i < l.size(); ++i) {
     std::cout << l[i] << std::endl;     // O(n)
 }
 ```
-
 - O(n^2) traversal
-- No direct access to "next" pointers, how can we do efficient iteration?
+- No direct access to "next" pointers, we can't make this fast, how can we do efficient iteration?
 
-- **Design Patterns**
-    - Well known solutions to well-studied problems
-    - Adapted to suit needs
-- **Iterator Pattern**
-    - Efficient iteration over a collection, without exposing the underlying structure
+**Design Patterns**
+- Well known solutions to well-studied problems
+- Adapted to suit needs
+
+**Iterator Pattern**
+- Efficient iteration over a collection, without exposing the underlying structure
 
 **Idea:** Create a class that "remembers" where you are in the list (abstraction of a pointer)  
 **Inspiration:** C
@@ -71,13 +69,13 @@ class list {
 ```
 ```C++
 list l;
-
+// ...
 for (list::iterator it = l.begin(); it != l.end(); ++it) {
     std::cout << *it << '\n';
 }
 ```
-
-**Q:** Should `list::begin` and `list::end` be `const` methods?  
+## **2021/09/30**
+**Q:** Should `list::begin` and `list::end` be `const` methods?
 **Consider:**
 
 ```C++
@@ -272,4 +270,4 @@ iterator end() {return theVector + n;}
 ```
 
 ---
-[Tampering << ](./problem_7.md) | [**Home**](../README.md) | [>> Staying in bounds](./problem_9.md) 
+[Tampering << ](./problem_8.md) | [**Home**](../README.md) | [>> Staying in bounds](./problem_10.md) 

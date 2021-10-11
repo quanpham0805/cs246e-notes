@@ -1,7 +1,7 @@
-[I want a constant vector <<](./problem_6.md) | [**Home**](../README.md) | [>> Efficient Iteration](./problem_8.md)
+[I want a constant vector <<](./problem_7.md) | [**Home**](../README.md) | [>> Efficient Iteration](./problem_9.md)
 
-# Problem 7: Tampering
-**2017-09-21**
+# Problem 8: Tampering
+## **2021-09-28**
 
 ```C++
 vector v;
@@ -14,11 +14,11 @@ v.push_back(10);
 
 1. Forgery 
     - Creating an object without a constructor function
-        - Not possible once we wrote constructors
+        - Not possible once we wrote constructors (resolved)
 1. Tampering
     - Accessing the internals without using provided interface functions
 
-What's the big deal? _Invariants_
+What's the big deal? **Invariants**
 
 - Statement that will always be true about an abstraction
 
@@ -42,25 +42,24 @@ struct vector {
         vector();
         size_t size() const;
         void push_back(int n);
-        ..
+        // ...
 };
 ```
 
-If no access specifer is given: default is public
+If no access specifer is given: default is public for `struct`
 
 In a previous lecture:
 
-_vector.cc_
+#### vector.cc
 ```C++
 #include "vector.h"
 namespace {
     void increaseCap(vector &v) {...}   // Doesn't work anymore! Doesn't have access to v's internals
 }
 ```
-
 Try again:
 
-_vector.h_
+#### vector.h
 ```C++
 struct vector {
     private:
@@ -74,9 +73,9 @@ struct vector {
         void increaseCap(); // Now a private method
 };
 ```
-
 NOW
-_vector.cc_
+
+#### vector.cc
 ```C++
 namespace CS246E {
     vector::vector() {...}  
@@ -104,18 +103,19 @@ class vector {
         void increaseCap(); // Now a private method
 };
 ```
+- We prefer using `class` to `struct`: it sounds cooler, and it has only 5 chars
 
 A similar problem with linked lists:
 
 ```C++
 Node n {3, nullptr};    // Stack allocated
-Node m {4, &n}; // m's dtor will try to delete &n (undefined)
+Node m {4, &n}; // m's dtor will try to delete &n (undefined, pointer pointed to a memory allocated on stack)
 ```
 
-There was an invariant that - `next` is `nullptr` or was allocated by `new`
+There was an **invariant** that - `next` is `nullptr` or was allocated by `new`, we don't want the user to use it wrong.
 
-How can we enforce this? 
-- Encapsulate Node inside a "wrapper" class
+How can we enforce this?
+- Encapsulate `Node` inside a "wrapper" class.
 
 ```C++
 class list {
@@ -127,8 +127,9 @@ class list {
     Node *theList;
     
     public:
-        list(): theList{nullptr} {}
-        ~list() {delete theList;}
+        list(): theList{nullptr} { }
+        // we can deconstruct this iteratively: run a loop inside the list class, this is actually possible now
+        ~list(): { delete theList; }
         size_t size() const;
 
         void push_front(int n) {
@@ -147,7 +148,7 @@ class list {
         const int &operator[](size_t i) const {
             Node *cur = theList;
             for (size_t j = 0; j < i && cur; ++j, cur=cur->next);
-            return curr->daata;
+            return curr->data;
         }
 
         int &operator[](size_t i) {
@@ -162,4 +163,4 @@ Client cannot manipulate the list directly
 - Invariant is maintained
 
 ---
-[I want a constant vector <<](./problem_6.md) | [**Home**](../README.md) | [>> Efficient Iteration](./problem_8.md)
+[I want a constant vector <<](./problem_7.md) | [**Home**](../README.md) | [>> Efficient Iteration](./problem_9.md)
