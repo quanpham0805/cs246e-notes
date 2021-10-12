@@ -1,14 +1,14 @@
-[Staying in bounds << ](./problem_9.md) | [**Home**](../README.md) | [>> Better Initialization](./problem_11.md) 
+[Staying in bounds << ](./problem_10.md) | [**Home**](../README.md) | [>> Better Initialization](./problem_12.md) 
 
-# Problem 10: I want a vector of chars
-**2017-10-03**
+# Problem 11: I want a vector of chars
+## **2021-10-05**
 
 Start over? No
 
 Introduce a major abstraction mechanism, **templates**
 - Generalize overtypes
 
-_Vector.h_
+#### Vector.h
 
 ```C++
 namespace CS246E {
@@ -18,7 +18,7 @@ namespace CS246E {
 
         public:
             Vector();
-            ...
+            // ...
             void push_back(T n);
             T &operator[](size_t i);
             const T &operator[] const(size_t)
@@ -29,12 +29,12 @@ namespace CS246E {
     };
 
     template<typename T> Vector<T>::vector() n{0}, cap{1}, theVector{new T[cap]} {}
-    template<typename T> void push_back(T n) {...}
+    template<typename T> void Vector<T>::push_back(T n) {...}
     /// etc.
 }
 ```
 
-**Note:** For templates, the implementation goes in `.h` file
+**Note:** For templates, the implementation goes in `.h` file. Because the compiler is gonna need those information to replace the type `T`.
 
 _main.cc_
 
@@ -56,4 +56,4 @@ int main() {
     - Can also write bodies inline
 
 ---
-[Staying in bounds << ](./problem_9.md) | [**Home**](../README.md) | [>> Better Initialization](./problem_11.md) 
+[Staying in bounds << ](./problem_10.md) | [**Home**](../README.md) | [>> Better Initialization](./problem_12.md) 

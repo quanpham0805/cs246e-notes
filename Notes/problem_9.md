@@ -1,7 +1,7 @@
 [Tampering << ](./problem_8.md) | [**Home**](../README.md) | [>> Staying in bounds](./problem_10.md) 
 
 # Problem 9: Efficient Iteration
-## **2017-09-28**
+## **2021-09-28**
 
 Consider the two implementations Vector and List
 ```C++
@@ -74,7 +74,7 @@ for (list::iterator it = l.begin(); it != l.end(); ++it) {
     std::cout << *it << '\n';
 }
 ```
-## **2021/09/30**
+## **2021-09-30**
 **Q:** Should `list::begin` and `list::end` be `const` methods?
 **Consider:**
 
@@ -100,6 +100,8 @@ ostream &operator<<(ostream &out, const list&l) {
 ```
 
 Will compile but shouldn't, the list is supposed to be `const`, but `*` returns as non-`const`
+- In the case that `l` is `const`, deref operator on the iterator should return a `const` reference. 
+- But if `l` is **not** `const`, deref operator on the iterator should return a non-`const` ref.
 
 **Conclusion:** iteration over `const` is different from iteration over non-`const`
 - Make a second iterator class
@@ -128,8 +130,8 @@ class list {
 
             public:
                 const_iterator(Node *p): p{p} {}
-                bool operator!=(const const_iterator &other) { return p != other.p; }
-                const int &operator*() const { return p->data; }
+                bool operator!=(const const_iterator &other) const { return p != other.p; }
+                const int &operator*() const { return p->data; } // return a const ref
                 const_iterator &operator++() {
                     p = p->next;
                     return *this;
@@ -143,10 +145,11 @@ class list {
 };
 ```
 
-Works now:
+Exercise: `cbegin` and `cend`.
 
+Works now:
 ```C++
-list::const_iterator it = l.begin();    // Mouthful
+list::const_iterator it = l.begin();    // this is mouthful
 ```
 
 Shorter:
@@ -155,10 +158,11 @@ ostream &operator<<(...) {
     for (auto it = l.begin(); it != l.end(); ++it) {
         out << *it << '\n';
     }
-
     return out;
 }
 ```
+- `auto x = expr` tells compiler to give you the type of the expression value, rather than you having to know the type, then compiler need to match the type as well (so it means compiler is actually doing less work)
+- When adding a new keyword (in this case, `auto`), there is a chance that there is a program already using that keyword.
 
 Even shorter:
 
@@ -171,7 +175,6 @@ ostream &operator<<(___) {
     return out;
 }
 ```
-
 This is a range-based `for` loop
 - Available for any class with:
     - Methods (or functions) `begin()` and `end()` that return an iterator object
@@ -180,9 +183,9 @@ This is a range-based `for` loop
 **Note:**
 - `for (auto n: l) ++n;`
     - `n` is declared by value
-    - `++n` increments n, not the list items
+    - `++n` increments n, not the list items (does not mutate the list)
 - `for (auto &n : l) ++n;`
-    -  `n` is a reference, will update list elements
+    -  `n` is a reference, will update list elements (mutate the list)
 - `for (const auto &n : l) ____;`
     - `const` reference, cannot be mutated
 
@@ -190,30 +193,35 @@ One small encapsulation problem:
 
 **Client:** `list::iterator it {nullptr}`
 - Forgery, create an end iterator without calling `end();`
+  ```c++
+    list::iterator it{nullptr};
+  ```
 
+**To fix:** make iterator constructor private
 
-**To fix:** make iterator constructor private  
 **BUT:** List can't create iterators either  
-**Solution:** _friendship_ <3
+
+**Solution:** **friendship** <3
 
 ```C++
 class list {
-    ...
+    // ...
     public:
         class iterator {
-            ...
+            // ...
             iterator(Node *p) {}
            
             public:
-            ...
+            // ...
             friend class list;  // list has access to all iterator's/const_iterator's implementation
         };
 
         class const_iterator {  // Same (friend class list)
-            ...
+            // ...
         }
 };
 ```
+C++ advice (or life advice): Limit your friendship, they weaken encapsulation (the implementation is exposed to the classes that are friends with this class, and changes will affect those classes).
 
 Recall: Encapsulation + Iterators for linked list
 
@@ -227,34 +235,21 @@ class vector {
     public:
         class iterator {
             int *p;
-            ...
+            // ...
         };
 
         class const_iterator {
-            ...
+            // ...
         };
 
-        iterator begin() {
-            return iterator{theVector};
-        }
-
-        iterator end() {
-            return iterator{theVector + n};
-        }
-
-        const_iterator begin() const {
-            return const_iterator{theVector};
-        }
-
-        const_iterator end() const {
-            return const_iterator{theVector + n};
-        }
+        iterator begin() {return iterator{theVector};}
+        iterator end() {return iterator{theVector + n};}
+        const_iterator begin() const {return const_iterator{theVector};}
+        const_iterator end() const {return const_iterator{theVector + n};}
 };
 ```
-
-Limit friendships, they weaken encapsulation
-
-Could do this, OR:
+- Notice that, in case of list, the iterator pattern helps us to not allow users to break our structure. However, in case of the vector, it doesn't really help anything because it's just an array, user can't break it at all.
+- Could do this, OR:
 
 ```C++
 typedef int *iterator;
@@ -262,9 +257,11 @@ typedef const int *const_iterator;
 
 ---
 
+// or if you hate typedef syntax
 using iterator = int*;
 using const_iterator = const int*;
 
+// i.e, use ordinary pointers as iterators
 iterator begin() {return theVector;}
 iterator end() {return theVector + n;}
 ```

@@ -1,14 +1,14 @@
-[I want a vector of chars <<](./problem_10.md) | [**Home**](../README.md) | [>> I want a vector of Posns](./problem_12.md)
+[I want a vector of chars <<](./problem_11.md) | [**Home**](../README.md) | [>> I want a vector of Posns](./problem_13.md)
 
-# Problem 11: Better Initialization
-**2017-10-04**
+# Problem 12: Better Initialization
+## **2021-10-05**
 
 ```C++
 a[] = {1, 2, 3, 4, 5};  // Array    :)
 
 vector<int> v;  // Vector   :(
 v.push_back(1);
-⋮
+// ...
 ```
 
 Long sequence of push backs can be very clunky
@@ -17,9 +17,9 @@ Goal: better initialization
 
 ```C++
 template<typename T> class vector {
-    ⋮
+    // ...
     public:
-        vector(): ...
+        vector(): // ...
         vector(size_t n, T i = T{}): n {n}, cap {n == 0 ? 1 : n}, theVector{new T[cap]} {
             for (size_t j = 0; j < n; ++j) {
                 theVector[j] = i;
@@ -104,8 +104,8 @@ template<typename T> class vector {
 vector<int> v;
 v.reserve(10);
 v.push_back(__);    // Can do 10 push_backs without needing to reallocate
-...
+// ...
 ```
 
 ---
-[I want a vector of chars <<](./problem_10.md) | [**Home**](../README.md) | [>> I want a vector of Posns](./problem_12.md)
+[I want a vector of chars <<](./problem_11.md) | [**Home**](../README.md) | [>> I want a vector of Posns](./problem_13.md)

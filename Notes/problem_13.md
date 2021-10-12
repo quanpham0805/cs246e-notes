@@ -1,7 +1,7 @@
-[Better Initialization << ](./problem_11.md) | [**Home**](../README.md) | [>> Less Copying](./problem_13.md) 
+[Better Initialization << ](./problem_12.md) | [**Home**](../README.md) | [>> Less Copying](./problem_14.md) 
 
-# Problem 12: I want a vector of posns
-**2017-10-04**
+# Problem 13: I want a vector of posns
+## **2021-10-05**
 
 ```C++
 struct Posn {
@@ -23,10 +23,11 @@ template<typename T> vector<T>::vector(): n{0}, cap{1}, theVector{new T[cap]} {}
 - C++ always calls a constructor when creating an object.
 - Which constructor gets called? The default constructor
 - But `Posn` doesn't have one
+- Creating a default constructor just to make the compiler happy is not always good. Sometimes we need to make the struct not initialized. And now, essentially what we just did was to propagate this problem from compile time to run time, and this is not good.
 
-Need to separate memory allocation (Object creation step 1) from initialization (steps 2-4)
+Need to separate memory allocation (Object creation step 1) from initialization (steps 2-4) (refer to [p4](./problem_14.md))
 
-**Allocation:** `void *operator new(size_t)`
+**Allocation only:** `void* operator new(size_t)`
 - Allocates `size_t` bytes
 - No initialization
 - Returns `void*`
@@ -42,18 +43,16 @@ Need to separate memory allocation (Object creation step 1) from initialization 
 
 ```C++
 template<typename T> class vector {
-    ...
+    // ...
     public:
         vector(): n{0}, cap{1}, theVector{static_cast<T*>(operator new(sizeof(T)))} {}
         vector(size_t n, T x = T{}): 
             n{n}, cap{n}, theVector{static_cast<T*>(operator new(n *sizeof(T)))} {
             
-            for (size_t i = 0; i < n; ++i)
+            for (size_t i = 0; i < n; ++ i)
                 new(theVector + i) T(x);
         }
-
-        ...
-
+        // ...
         void push_back(T x) {
             increase_cap();
             new(theVector + (n++)) T(x);
@@ -79,4 +78,4 @@ template<typename T> class vector {
 ```
 
 ---
-[Better Initialization << ](./problem_11.md) | [**Home**](../README.md) | [>> Less Copying](./problem_13.md) 
+[Better Initialization << ](./problem_12.md) | [**Home**](../README.md) | [>> Less Copying](./problem_14.md) 
