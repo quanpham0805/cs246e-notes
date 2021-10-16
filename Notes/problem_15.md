@@ -1,11 +1,11 @@
-[Less Copying << ](./problem_13.md) | [**Home**](../README.md) | [>> Is vector exception safe?](./problem_15.md) 
+[Less Copying << ](./problem_14.md) | [**Home**](../README.md) | [>> Is vector exception safe?](./problem_16.md) 
 
-# Problem 14: Memory management is hard!
-**2017-10-12**
+# Problem 15: Memory management is hard!
+## **2021-10-07**
 
-No it isn't.
-- Vectors do everything arrays can
-    - Grow as needed O(1) amortized time or better (reserve the sapce you need)
+No it isn't!
+- Vectors can do everything arrays can
+    - Grow as needed O(1) amortized time or better (reserve the space you need)
     - Clean up automatically when they go out of scope
     - Are tuned to minimize copying
 
@@ -17,21 +17,18 @@ But what about single objects?
 ```C++
 void f() {
     Posn *p = new Posn{1, 2};
-    ...
+    // ...
     delete p;   // Must deallocate the posn!
 }
 ```
 
-First ask, do you really need to use the heap?
-
-Could you have used the stack instead?
+First ask yourself, do you really need to use the heap? Could you have used the stack instead? (remember heap memory allocation is not _that_ time efficient)
 
 ```C++
 void f() {
     Posn p {1, 2};
-    ...
-
-}   // No cleanup necessary
+    // ...
+}   // No cleanup necessary, no need garbo collector, ezpz
 ```
 
 But sometimes you do need the heap. Calling `delete` isn't so bad, but consider:
@@ -39,9 +36,7 @@ But sometimes you do need the heap. Calling `delete` isn't so bad, but consider:
 ```C++
 void f() {
     Posn *p = new Posn{1, 2};
-
-    if (some condition) throw BadNews{};
-
+    if (some condition) throw BadNews{}; // oops
     delete p;  
 }
 ```
@@ -49,17 +44,17 @@ void f() {
 `p` is leaked if `f` throws (unacceptable).
 
 Raising and handling an exception should not corrupt the program. 
-- We desire exception safety.
+- We desire **exception safety**.
 
 Leaks are a corruption of your program's memory. This will eventualy degrade performance and crash the program.
 
 If a program cannot recover from an expression without corrupting its memory, what's the point of recovering?
 
 What constitues exception safety? 3 levels:
-1. **Basic guarantee** - once an exception has been handled, the program is in some valid state, no leaked memory, no corrupted data structures, all invariants are maintained.
-1. **Strong guarantee** - if an exception propogates out of a function `f`, then the state of the program will be as if `f` had not been called
-    - `f` either succeeds completely or not at all.
-1. **Nothrow guarantee** - a function `f` offers the nothrow guarantee if `f` never emits an exceptions and _always_ accomplishes its purpose
+1. **Basic guarantee** - once an exception has been handled, the program is in **some** valid state, no leaked memory, no corrupted data structures, all invariants are maintained.
+1. **Strong guarantee** - if an exception propagates out of a function `f`, then the state of the program will be **as if `f` had not been called**.
+    - `f` either succeeds completely or not at all, no in between.
+1. **Nothrow guarantee** - a function `f` offers the nothrow guarantee if `f` **never emits an exceptions** and always accomplishes its purpose
 
 
 Will revist, but now coming back to `f`:
@@ -72,25 +67,24 @@ void f() {
         delete p;
         throw BadNews{};
     }
-
+    // ...
     delete p;   // Duplicated effort! Memory management is even harder!
 }
 ```
 
-Want to guarantee that `delete p;` happens no matter what.
-What guarantee does C++ offer?
-- Only one: that destructors for stack-allocated objects will be called when the objects go out of scope.
+Want to guarantee that `delete p;` happens no matter what. What guarantee does C++ offer?
+- Only one (but this is enough): that destructors for stack-allocated objects will be called when the objects go out of scope.
 
 So create a class with a destructor that deletes the pointer.
 
 ```C++
 template<typename T> class unique_ptr {
-        T *p;
+    T *p;
     public:
         unique_ptr(T *p): p{p} {}
         ~unique_ptr() { delete p; }
-        T *get() const { return p; }
-        T *release() {
+        T* get() const { return p; }
+        T* release() { // give me the pointer then don't have it anymore
             T *q = p;
             p = nullptr;
             return q;
@@ -100,13 +94,13 @@ template<typename T> class unique_ptr {
 ```C++
 void f() {
     unique_ptr<Posn> p {new Posn{1, 2}};
-
     if (some condition) throw BadNews{};
-
 }
 ```
 
 That's it! Less memory management effort than we started with!
+
+## **2021-10-19**
 
 Using `unique_ptr` can use `get` to fetch the raw pointer.
 
@@ -208,4 +202,4 @@ template<typename T, typename... Args> unique_ptr<T> make_unique(Args&&... args)
 - Ex. `unique_ptr`, `ifstream`/`ofstream` aquire the resource when the object is initialized and release it when the object's destructor runs
 
 ---
-[Less Copying << ](./problem_13.md) | [**Home**](../README.md) | [>> Is vector exception safe?](./problem_15.md) 
+[Less Copying << ](./problem_14.md) | [**Home**](../README.md) | [>> Is vector exception safe?](./problem_16.md) 

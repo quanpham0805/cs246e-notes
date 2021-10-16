@@ -1,17 +1,21 @@
-[I want a vector of Posns <<](./problem_12.md) | [**Home**](../README.md) | [>> Memory management is hard](./problem_14.md)
+[I want a vector of Posns <<](./problem_13.md) | [**Home**](../README.md) | [>> Memory management is hard](./problem_15.md)
 
-# Problem 13: Less copying!
-**2017-10-04**
+# Problem 14: Less copying!
+## **2021-10-07**
+
+We need to make this work for all type `T` efficiently.
 
 **Before:** 
 ```C++
+// perfectly fine
 void push_back(int n);
 ```
 
 **Now:** 
 ```C++
-void push_back(T x) {   // (1) If T is an object, how many times is T being copied?
-    increaseCap();
+// T can be very complicated, passing by value is kinda sus
+void push_back(T x) { // (1) If T is an object, how many times is T being copied?
+    increaseCap(); 
     new(theVector + (n++)) T(x);   // (2)
 }
 ```
@@ -33,34 +37,36 @@ void push_back(T x) {
     new(theVector + (n++)) T(std::move(x));
 }
 ```
+Seems good so far:
+- **lvalue:** copy + move  
+- **rvalue:** move + move
 
-**lvalue:** copy + move  
-**rvalue:** move + move
-
-If `T` doesn't have a move constructor: 2 copies
+But the issue is: what if `T` doesn't have a move constructor? It would make 2 copies. Can we make this so that it would work regardless of `T` having a move ctor or not?
 
 **Better:** take `T` by reference
 ```C++
+// lvalue
 void push_back(const T &x) {    // No copy, no move
     increaseCap();
     new(theVector + (n++)) T(x);   // Copy constructor
 }
 
-
+// rvalue
 void push_back(T &&x) { // No copy, no move
     increaseCap();
-    new(theVector + (n++)) T(std::move(x));
+    new(theVector + (n++)) T(std::move(x)); // copy ctor will run if there is no move ctor
 }
 ```    
 
-**lvalue:** 1 copy  
-**rvalue:** 1 move
+- **lvalue:** 1 copy  
+- **rvalue:** 1 move
 
 If no move constructor: 1 copy
 
 Now consider:
 ```C++
 Vector<Posn> v;
+// What could go wrong????
 v.push_back(Posn {3, 4});
 ```
 
@@ -68,17 +74,20 @@ v.push_back(Posn {3, 4});
 1. Copy or move constructor into the vector (depending on whether Posn has a move constructor)
 1. Destructor call on the temporary object
 
+Having ctor and then dtor, they cancel out, sounds like a waste.
+
 Could eliminate (1) and (3) if we could get vector to create the object instead of the client
 - Pass constructor args to the vector and not the actual object
 - How? Soon, but first...
 
-### A note on template functions
+### **A note on template functions**
 
 Consider: `std::swap` seems to work on all types
 
 **Implementation:**
 ```C++
-template<typename T> void swap(T &a, T&b) {
+// Without std::move, it would be good c++98, not so good c++11
+template<typename T> void swap(T &a, T &b) {
     T tmp{std::move(a)}
     a = std::move(b);
     b = std::move(tmp);
@@ -110,28 +119,28 @@ Idea - member template function (like `swap`, it could take anything)
 
 ```C++
 template<typename T> class vector {
-    ...
+    // ...
     public:
-    ...
+    // ...
     template<typename... Args> void emplace_back(Args... args) {
         increaseCap();
+        // just pass args... as is :D
         new(theVector + (n++)) T (args...);
     }
 };
 ```
 
 In this case, `...` in template actually represents a variable amount of arguments
-
-
-`Args` is a _sequence_ of type vars denoting the type of the actual args of `emplace_back`  
-`args` is a _sequence_ of program vars denoting the actual args of `emplace_back`
+- `Args` is a _sequence_ of type vars denoting the type of the actual args of `emplace_back`  
+- `args` is a _sequence_ of program vars denoting the actual args of `emplace_back`
 
 ```C++
 vector<Posn> v;
 v.emplace_back(3, 4);
 ``` 
 
-**Problem:** args is being taken by value, can we take args by reference? (lvalue or rvalue reference?)
+**Problem:** args is being taken by value, can we take args by reference? (and should we take lvalue or rvalue reference?) for better efficiency.
+- When we were implementing `push_back`, there was only 1 argument, and it can only be either a lvalue or a rvalue. But now we have a sequence of them, which we could have a mixture of both lvalue and rvalue.
 
 ```C++
 template<typename... Args> void emplace_back(Args&&... args) {
@@ -139,10 +148,11 @@ template<typename... Args> void emplace_back(Args&&... args) {
     new(theVector + (n++)) T (args...);
 }
 ```
+**Note:** It looks like we are taking rvalue ref, but this is **NOT TRUE**
 
 Special rules here: `Args&&` is a **universal reference** (officially: **forwarding reference**)
-- Can point to an lvalue or an rvalue
-- Must have the form `T&&`, where `T` is the type arg being deduced for the current template function call
+- Can point to an lvalue or an rvalue.
+- When is a reference universal? Must have the form `T&&`, where `T` is the type arg being deduced for the current **template function call**.
 
 Ex.
 ```C++
@@ -150,7 +160,7 @@ template<typename T> class c {
     public:
         template<typename U> void g(U&& x); // Universal
         template<typename U> void h(const U&& x);   // Not universal (because of const)
-        void j(T&& x);  // Not universal (not being deduced, T is already known)
+        void j(T&& x);  // Not universal (not being deduced, T is already known, and is a template parameter of a class, not a function)
 };
 ```
 
@@ -158,7 +168,7 @@ Now recall:
 
 ```C++
 class C {...};
-void f(C&& x) { // rvalue reference - x points  to an rvalue, but x is an lvalue
+void f(C&& x) { // rvalue reference - x points to an rvalue, but x itself is an lvalue
     g(x);   // x is passed as an lvalue to g
 }
 ```
@@ -183,5 +193,7 @@ template<typename... Args> void emplace_back(Args&&... args) {
 
 `std::forward` calls `std::move` if its argument is an rvalue reference, else does nothing
 
+Now `args` is passed to `T`'s ctor with rvalue/lvalue information preserved. This technique is called **perfect forwarding**.
+
 ---
-[I want a vector of Posns <<](./problem_12.md) | [**Home**](../README.md) | [>> Memory management is hard](./problem_14.md)
+[I want a vector of Posns <<](./problem_13.md) | [**Home**](../README.md) | [>> Memory management is hard](./problem_15.md)

@@ -64,15 +64,21 @@ template<typename T> class vector {
                 --n;
             }
         }
-
-        ~vector() {
-            destroy_items();
-            operator delete(theVector);
-        }
-
         void destroy_items() {
             for (auto &x: *this)
                 x.~T();
+        }
+        // another version of destroy_items:
+        void clear() {
+            // doing --n here is kinda sus but I guess it's fine because we don't use n anymore
+            while (n) {
+                theVector[-- n].~T();
+            }
+        }
+        ~vector() {
+            // we can use clear() here
+            destroy_items();
+            operator delete(theVector);
         }
 };
 ```
