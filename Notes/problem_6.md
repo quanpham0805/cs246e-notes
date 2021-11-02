@@ -1,4 +1,4 @@
-[>> The Copier is broken!](./problem_5.md) | [**Home**](../README.md) | [>> I want a constant vector](./problem_7.md)
+[The Copier is broken! <<](./problem_5.md) | [**Home**](../README.md) | [>> I want a constant vector](./problem_7.md)
 
 # Problem 6: Moves
 ## **2021-09-23**
@@ -192,4 +192,4 @@ In summary: Rule of 5 (Big 5)
 then you usually need to customize all 5.
 
 ---
-[>> The Copier is broken!](./problem_5.md) | [**Home**](../README.md) | [>> I want a constant vector](./problem_7.md)
+[The Copier is broken! <<](./problem_5.md) | [**Home**](../README.md) | [>> I want a constant vector](./problem_7.md)
