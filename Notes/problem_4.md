@@ -312,7 +312,7 @@ When an object is created, there are 4 steps:
 
 1. Space is allocated, we need space to hold it.
 2. (later)
-3. Fields are constructeed in declaration order (field constructors are called for fields that are objects)
+3. Fields are constructed in declaration order (field constructors are called for fields that are objects)
 4. Constructor body runs
 
 Field initialization should happen in step 3, but constructor body happens in step 4
