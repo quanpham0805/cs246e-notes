@@ -25,7 +25,7 @@ template<typename T> vector<T>::vector(): n{0}, cap{1}, theVector{new T[cap]} {}
 - But `Posn` doesn't have one
 - Creating a default constructor just to make the compiler happy is not always good. Sometimes we need to make the struct not initialized. And now, essentially what we just did was to propagate this problem from compile time to run time, and this is not good.
 
-Need to separate memory allocation (Object creation step 1) from initialization (steps 2-4) (refer to [p4](./problem_14.md))
+Need to separate memory allocation (Object creation step 1) from initialization (steps 2-4) (refer to [p4](./problem_4.md))
 
 **Allocation only:** `void* operator new(size_t)`
 - Allocates `size_t` bytes
