@@ -182,6 +182,7 @@ f(unique_ptr<C> {new C;}, g());
 ```
 
 C++ does not enforce order of argument evaluation
+
 It could be:
 1. `new C`
 1. `g()`
@@ -196,10 +197,15 @@ template<typename T, typename... Args> unique_ptr<T> make_unique(Args&&... args)
     return unique_ptr<T> { new T(std::forward<Args> (args)...) };
 }
 ```
+- In C++17, this has changed. It is still not the case that arguments evaluations order is fully specified, it's still up to the compiler. But it will say, that once you start evaluating an argument, it has to finish. Refer to the example above, it can either be doing all of 1 and 3, then 2, or 2 then all of 1 and 3 (1 and 3 cannot be split up in C++17), which makes this not as necessary, but a nice to have.
 
 `unique_ptr` is an example of the C++ idiom: **Resource Acquisition Is Initialization (RAII)**
 - Any resource that must be properly released (memory, file handle, etc.) should be wrapped in a stack-allocated object whose destructor frees it
 - Ex. `unique_ptr`, `ifstream`/`ofstream` aquire the resource when the object is initialized and release it when the object's destructor runs
+
+C++ is one of the languages that don't have a garbage collector, and they don't plan on adding it. 
+- One of the argument is that garbage collection only solve a part of the problem, it does not solve everything. Yes it cleans up your memory, but you memory is only one of the many things you need to clean up (file, network connection,...). 
+- Another thing is that garbage collecting can happen at any time - program must be stopped temporarily, memory must be cleaned, then resume again - which introduces some lags affecting program performance. With dtor, you know exactly when it's gonna happen, it's free and cheap, you don't really need to care about it.
 
 ---
 [Less Copying << ](./problem_14.md) | [**Home**](../README.md) | [>> Is vector exception safe?](./problem_16.md) 

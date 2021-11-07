@@ -1,35 +1,38 @@
-[Memory management is hard <<](./problem_14.md) | [**Home**](../README.md) | [>> Insert/Remove in the middle](./problem_16.md)
+[Memory management is hard <<](./problem_15.md) | [**Home**](../README.md) | [>> Insert/Remove in the middle](./problem_17.md)
 
-# Problem 15: Is vector exception safe?
-**2017-10-12**
+# Problem 16: Is vector exception safe?
+## **2021-10-19**
 
 Consider:
 
 ```C++
 template<typename T> class vector {
-        size_t n, cap;
-        T *theVector;
-    public:
-        vector(size_t n, const T &x): n{n}, cap{n}, theVector{static_cast<T*>(operator new(n * sizeof(T)))} {
-            for (size_t i = 0; i < n; ++i) {
-                new(theVector + i) T(x);    // copy constructor for T, could throw - then what?
-            }
+    size_t n, cap;
+    T *theVector;
+public:
+    vector(size_t n, const T &x): 
+        n{n}, cap{n}, 
+        theVector{static_cast<T*>(operator new(n * sizeof(T)))} {
+            for (size_t i = 0; i < n; ++i)
+                // copy constructor for T, could throw - then what?
+                new(theVector + i) T(x);
         }
 };
 ```
-
+- `malloc` vs `operator new`: `malloc` returns a `nullptr` if it fails, `operator new` fails it would throw an exception, but then it means we wouldn't have done anything, nothing has been allocated (strong guarantee), no problem.
+- Other place we can get an exception is in the copy ctor of `T`.
 - Partially constructed vector - destructor will not run
-    - Broken invariant
-- **Note:** if `operator new` throws - nothing has been allocated
-    - No problem - strong guarantee
+    - Broken invariant, does not contain `n` valid objects
 
 **Fix:**
 ```C++
 template<typename T> class vector {
-        size_t n, cap;
-        T *theVector;
-    public:
-        vector(size_t n, const T &x): n{n}, cap{n}, theVector{static_cast<T*>(operator new(n * sizeof(T)))} {
+    size_t n, cap;
+    T *theVector;
+public:
+    vector(size_t n, const T &x): 
+        n{n}, cap{n}, 
+        theVector{static_cast<T*>(operator new(n * sizeof(T)))} {
             size_t progress = 0;
             try {
                 for (size_t i = 0; i < n; ++i) {
@@ -37,15 +40,18 @@ template<typename T> class vector {
                     ++progress;
                 }
             } catch(...) {  // ... supresses all type checking (accept whatever)
-                for (size_t i = 0; i < progress; ++i) theVector[i] ~T();
+                for (size_t i = 0; i < progress; ++i) theVector[i].~T();
                 operator delete(theVector);
-                throw;  // rethrow
+                throw;  // rethrow the exception, we don't need to refer to the exception to throw it
             }
         }
 };
 ``` 
+- `...` in the `catch` block is literally `...` and not Brad wants us to fill in the blank. In languages like Java, there is a base class for all errors, but this is not the case for C++ as it can throw literally anything. One way we can *possibly* catch all is to catch `std::exception`, but again not everything follows this.
+- Be careful about throwing `std::string`, because it actually throws `char*` and not `string`.
 
-Abstract the filling part into its own function:
+
+Abstract the filling part into its own function (since the function is quite big now):
 ```C++
 template<typename T> void uninitialized_fill(T *start, T *finish, const T &x) {
     T *p;
@@ -78,10 +84,12 @@ template<typename T> class vector {
         }
 };
 ```
+- Vector is now responsible for 2 things: Creation and destruction of the array, and managing the content of the array.
 
 Can clean this up using RAII on the array:
 
 ```C++
+// Just to manage the array, nothing to do with the content, just the array itself
 template<typename T> struct vector_base {
     size_t n, cap;
     T *v;
@@ -94,26 +102,31 @@ template<typename T> class vector {
         vector_base<T> vb;  // Cleaned up implicitly when vector is destroyed
     public:
         vector(size_t n, const T &x): vb{n} {
-            uninitialized_fill(vb.v, vb.v + vb.n, x);
+            uninitialized_fill(vb.v, vb.v + vb.n, x); // strong-guarantee
         }
-        ~vector() { destroy_elements(); }
+        ~vector() {
+            // or clear(), destruct all items
+            destroy_elements(); 
+        }
 };
 ```  
+- We have made the filling ctor exception safe.
 
-**Copy Constructor:**
+### **Copy Constructor:**
 ```C++
 template<typename T> vector<T>::vector(const vector &other): vb{other.size()} {
-    uninitialized_copy(other.begin(), other.end(), vb.v);   // Similar to uninitialized_fill
+    uninitialized_copy(other.begin(), other.end(), vb.v);   // Similar to uninitialized_fill, details, exercise
 }
 ```
 
 Assignment: copy & swap is exception-safe because swap is no-throw
+
 Pushback:
 ```C++
-void push_back(const T&x) {
+void push_back(const T& x) {
     increaseCap();
-    new(vb.v + (vb.n++)) T{x};  // If this throws, have the same vector
-                    // Don't increment n before you know the construction succeded
+    new(vb.v + vb.n) T{x}; // If this throws, have the same vector
+    ++ vb.n; // Don't increment n before you know the construction succeded
 }
 ``` 
 
@@ -122,15 +135,15 @@ What about `increaseCap`?
 ```C++
 void increaseCap() {
     if (vb.n == vb.cap) {
-        vector_base vb2 {2 * vb.cap};   // RAII
+        vector_base vb2 {2 * vb.cap};   // RAII, anything goes wrong we're good
         uninitialized_copy(vb.v, vb.v + vb.n, vb2.v);   // Strong guarantee
-        destroy_elements();
-        std::swap(vb, vb2); // no throw
+        destroy_elements(); // clear();
+        std::swap(vb, vb2); // might be no throw
     }
 }
 ```
 
-**Note:** only `try` blocks are in `uninitialized_copy` + `uninitialized_fill`.
+**Note:** only `try` blocks are in `uninitialized_copy` and `uninitialized_fill`.
 
 But we have an efficiency issue - copying from old array to the new one knowing that the old array is going to be destroyed. Moving would be better.
 - But moving destroys the old array, so if an exception is thrown during moving, our vector is destroyed
@@ -154,7 +167,7 @@ void uninitialized_copy_or_move(T *start, T *finish, T *target) {
             new(static_cast<void*>(target)) T{std::move_if_noexcept(*p)};
         }
     } catch(...) {
-        for (T *q = start; q != p; ++q) (target + (q - p))->~T();
+        while (p != start) (-- p)->~T();
     }
 }
 ```
@@ -194,8 +207,7 @@ template<typname T> void swap(T &a, T &b)
     ...
 }
 ``` 
-
 **Note:** `noexcept` = `noexcept(true)`
 
 ---
-[Memory management is hard <<](./problem_14.md) | [**Home**](../README.md) | [>> Insert/Remove in the middle](./problem_16.md)
+[Memory management is hard <<](./problem_15.md) | [**Home**](../README.md) | [>> Insert/Remove in the middle](./problem_17.md)
