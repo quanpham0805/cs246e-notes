@@ -19,7 +19,7 @@
     - Very easy to be a source of error
     - Very difficult to search for
 
-The `C++` casting operators - _4 operators_
+### **The `C++` casting operators - _4 operators_**
 - **`static_cast`:** for conversion <u>with</u> well-defined semantics
     - Ex. 
         ```C++
@@ -36,7 +36,6 @@ The `C++` casting operators - _4 operators_
         ```
     - **Important**: You only do this if you're **100%** sure that pointer is pointing to a `Text`, otherwise it is not safe, undefined behaviour.
     - Telling the compiler "trust me, I know what I'm doing"
-  
 - **`reinterpret_cast`:** for casts <u>without</u> well-defined semantics
     - Unsafe, implementation-dependent, "weird" casts (therefore unportable)
     - Ex. 
@@ -117,5 +116,15 @@ The `C++` casting operators - _4 operators_
             return this; 
         }
         ```
+
+
+### **Performance comparison:**
+- `dynamic_cast` is expensive because of vtable lookup.
+- `reinterpret_cast` and `const_cast` should be O(0), as they're just a change in type, which has no run-time representation. 
+- `static_cast` can be O(0), and would be in the normal case of casting superclass pointer to subclass pointer. 
+  - But for numeric types, e.g., `int` <--> `float`, that conversion does have a small O(1) cost. 
+  - And in the case of casting between superclass and subclass pointers under multiple inheritance, `static_cast` should have the cost of shifting a pointer, which is cheap under non-virtual inheritance, and may involve a vtable lookup under virtual inheritance.
+
+
 ---
 [The copier is broken (again) << ](./problem_22.md) | [**Home**](../README.md) | [>> A big unit on Object Oriented Design](./object_oriented_design.md)

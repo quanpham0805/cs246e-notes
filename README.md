@@ -55,6 +55,7 @@ reading sections are referenced to this book.
 1. [Continuation of structured Bindings (C++17)](Notes/discussion_5.md)
 1. [Range Abstraction (C++20)](Notes/discussion_6.md)
 1. [Unions Revisited (C++17)](Notes/discussion_7.md)
+2. [void* revisited (C++17)](Notes/discussion_8.md)
 
 
 ## Index
