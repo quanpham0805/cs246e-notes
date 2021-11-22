@@ -762,7 +762,7 @@ Ex. add menus/scrollbars to windows - either or both without a combinatorial exp
 
 <pre>
                       +-----------+
-                      | <em>Component</em> |<------------+
+                      | Component |<------------+
                       +-----------+             |
                             ^                   |
                             |                   |
@@ -770,20 +770,20 @@ Ex. add menus/scrollbars to windows - either or both without a combinatorial exp
           |                            |        |
           | // Plain window            |        |
     +--------------------+       +-----------+  |
-    | Concrete Component |       | <em>Decorator</em> |◇-+
+    | Concrete Component |       | Decorator |◇-+
     +--------------------+       +-----------+
     |+ operation         |             ^
     +--------------------+             |
                                        +------------------------------------+
                                        |                                    |
                             +----------------------+            +----------------------+
-// (Window w/ scrollbar)    | Concrete Decarator A |            | Concrete Decarator B | // Window w/ menu
+// (Window w/ scrollbar)    | Concrete Decorator A |            | Concrete Decorator B | // Window w/ menu
                             +----------------------+            +----------------------+
                             | operation            |            | operation            |
                             +----------------------+            +----------------------+
 </pre>
 
-Every `Decorator` IS a component AND HAS a `Component`
+Every `Decorator` IS-A component AND HAS-A `Component`
 - `Window w/ scrollbar` is a kind of window, _and_ has a pointer to the underlying plain window
 - `Window w/ scrollbar + menu` is a window and has a pointer to a `window w/ scrollbar`, which has a pointer to a `plain window`  
 
@@ -791,39 +791,79 @@ Ex.
 
 ```C++
 WindowInterface *w = new WindowWithMenu{
-                            new WindowWithScollBar{
-                                new Window{}}};
+                        new WindowWithScrollBar{
+                            new Window{}
+                        }
+                    };
 ```
+- Pizza example: in code repository
 
-### **Vistor Pattern**
+### **Visitor Pattern**
 
-For implementing _double dispatch_
+For implementing _Double Dispatch_
 - Method chosen based on the runtime types of 2 objects, not just one
+- Example:
+
+```
+              -------
+              |Enemy|
+              -------
+                 ^
+                 |
+            ------------
+            |          |
+        --------     --------
+        |Turtle|     |Bullet|
+        --------     --------
+
+              --------
+              |Weapon|
+              --------
+                 ^
+                 |
+            ------------
+            |          |
+       ---------     --------
+       | Stick |     | Rock |
+       ---------     --------
+
+```
+- <u>Effect</u> of striking an enemy with a weapon depends on both the enemy and the weapon
+- C++ virtual methods are dispatched on the type of the receiver object, not on the type of params
+  - The receiver object is the object that the method is being called on (`vector a; a.push()` then `a` is the receiver object)
+  - No way to specify 2 receiver objects
+- Visitor pattern: combine overriding with overloading to do a two-stage dispatch
+
 
 ```C++
 class Enemy {
-    public:
+public:
     virtual void beStruckBy(Weapon &w) = 0;
 };
 
+// we want to have the custom body, even though the two code are the same
+// is because we would pass Turtle and Bullet
+// and strike can take whatever corresponds to the object
 class Turtle: public Enemy {
-    public:
+public:
     void beStruckBy(Weapon &w) override {w.strike(*this);}
 };
 
 class Bullet: public Enemy {
-    public:
+public:
     void beStruckBy(Weapon &w) override {w.strike(*this);}
 };
 
 class Weapon {
-    public:
+public:
+    // Overloading
     virtual void strike(Turtle &t) = 0;
     virtual void strike(Bullet &b) = 0;
 };
 
+// Rock would be similar
 class Stick: public Weapon {
-    public:
+public:
     void strike(Turtle &t) override {
         //strike turtle with stick
     }
@@ -845,33 +885,38 @@ What happens?
 - Which calls `Weapon::strike(Bullet &b)` since `*this` is a Bullet
 - This fact is known at compile time, overload resolution
 - Virtual method resolves to `Rock::Strike(Bullet &)`
-
-Visitor can also be used to add functionality to a class hierarchy without adding new virtual methods.
+- Tight coupling yes, but nothing we can do about it, it gets the job done, and also it only creates tight coupling locally (some methods only)
+  
+Visitor can also be used to add functionality to a class hierarchy without adding new virtual methods
+- Normally if we want to have a functionality that is based on the kind of, say, `Book`, we would need to write a virtual method for `Book` and override it for each subclasses, which is fine
+- But sometimes that's not possible. For example you have a weird one-off thing you only want to do it once, and it would be completely unsuitable to mess with the interface, just to add the method
+- Or maybe you can't add to the interface, it belongs to someone else and you don't have permissions (well, this means more like you only have one change, or the change you make must follow visitor pattern).
+- Use `dynamic_cast`? Violates open/closed. So we will use visitor pattern.
+- If we really can't add to the interface (strictly speaking)? Dynamic is the only option.
 
 Add a visitor to the book hierarchy:
 ```C++
 class Book {
-    ...
-    public:
-    ...
-    virtual void accept(BookVisitor &v) {v.visit(*this);}
+    // ...
+public:
+    // ...
+    virtual void accept(BookVisitor &v) { v.visit(*this); }
 };
 
 class Text: public Book {
-    ...
-    public:
-    void accept(BookVisitor &v) override {
-        v.visit(*this);
-    }
+    // ...
+public:
+    void accept(BookVisitor &v) override { v.visit(*this); }
 };
 
 class BookVisitor {
-    public:
+public:
     virtual void visit(Book &b) = 0;
     virtual void visit(Text &t) = 0;
     virtual void visit(Comic &c) = 0;
 };
 ```
+- If we compare to the previous example, we know `Book` corresponds to `Enemy`, `accept` corresponds to `beStruckBy` and `visit` corresponds to `strike`.
 
 Example: Categorize and Count.
 - For `Book`s: - by Author
@@ -883,18 +928,19 @@ Could do this with a virtual method, or write a visitor.
 class Catalog: public BookVisitor {
     public:
     map<string, int> theCat;
-    void visit(Book &b) override {++theCat[b.getAuthor()];}
-    void visit(Text &t) override {++theCat[b.getTopic()];}
-    void visit(Comic &c) override {++theCat[c.getHero()];}
+    void visit(Book &b) override { ++theCat[b.getAuthor()]; }
+    void visit(Text &t) override { ++theCat[b.getTopic()]; }
+    void visit(Comic &c) override  { ++theCat[c.getHero()]; }
 };
 ```
 
 ### But it won't compile!
 - Circular include dependency
-- _book.h_, _BookVisitor.h_ include each other.
+- _book.h_, _BookVisitor.h_ include each other
 - include guard prevents multiple inclusion
-- whichever ends up occurring first will refer to things not yet defined.
-- needless includes create artificial compilation dependencies, and slow down compilation, or prevent compilation altogether.
+- whichever ends up occurring first will refer to things not yet defined
+- Know when an `#include` is actually needed
+  - needless includes create artificial compilation dependencies, and slow down compilation, or prevent compilation altogether.
 
 Sometimes a forward class declaration is not good enough.
 
@@ -919,7 +965,7 @@ class E {
 };
 
 class F {
-    A f(A a) {a. someMethod();}
+    A f(A a) { a.someMethod(); }
 };
 
 class G {
@@ -927,15 +973,17 @@ class G {
 };
 ```
 Which need includes? `B`,`D`,`F` need includes
-
-`C`,`E` forward declare ok.
-
-`G` - it depends on how the template t uses A.
-- should collapse to one of the other cases.
+- `B` needs include, because in order for the compiler to create `class B`, one of the thing it needs to know is how big a `B` object is, and this only works if we know how big an `A` object is.
+- `C` does not need because it's just a pointer, size are always the same. Forward declaration is enough.
+- `D` similar to `B` so it needs include.
+- `E` is tricky, this is just a method which turns into a function, so we only need to know `A` exists to do type checking. If we want to call that method then yes we need to include `A`, but that's the client's job. Hence, we don't need include.
+- `F` is, in a way, similar to `E`, but in the body it is making use of the knowledge about `A`, so we need an include here.
+- `G` - it depends on how the template `t` uses A.
+  - should collapse to one of the other cases.
 
 Note: class `F` only needs an include because method `f`'s implementation is present.
-- a good resason to keep implementation in .cc
-- where possible: forward declare in .h, include in .cc
+- a good reason to keep implementation in `.cc`
+- where possible: forward declare in `.h`, include in `.cc`
 
 Also notice: `B` needs an include; `C` does not.
 - If we want to break the compilation dependency of `B` on `A`, we could make `B` like `C`.
@@ -963,9 +1011,9 @@ class B {
 _bimpl.h:_
 ```C++
 #include "a1.h"
-...
-
-struct BImpl {
+// ...
+class BImpl {
+public:
     A1 a1;
     A2 a2;
     A3 a3;
@@ -979,24 +1027,25 @@ _b.cc:_
 
 methods reference pImpl -> a1, a2, a3
 ```
-
 _b.h_ no longer compilation-dependent on _a1.h_, etc.
-- called the pImpl idiom
+- called the **pImpl idiom** (pointer implementation idiom).
 
 Another advantage of pImpl - pointers have a non-throwing swap.
 
-Can provide the strong guarantee on a B method by
+Can provide the <u>strong guarantee</u> on a `B`'s method by
 - Copying the Impl into a new BImpl structure (heap-allocated)
-- Method modifies the copy
+- Having that `B`'s method modifies the copy
 - If anything throws, discard the new structure (easy and automatic with `unique_ptr`s)
 - If all succeeds swap impl structs (pointer swap - `nothrow`)
-- Previous impl automcatically destroyed by the smart pointer.
+- Previous impl automatically destroyed by the smart pointer.
+
+This works if the structure is simple enough so that it's not costly to heap-allocating a duplicate of the structure. And it works well because mutating fields can throw, which is hard to offer strong-guarantee.
 
 Example:
 ```C++
 class B {
     unique_ptr<BImpl> pImpl;
-    ...
+    // ...
     void f() {
         auto temp = make_unique<BImpl>(*pImpl);
         temp->doSomething();

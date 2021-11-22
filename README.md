@@ -30,7 +30,7 @@ reading sections are referenced to this book.
 1. [F2021 updated] [I want a class with no objects](Notes/problem_21.md)
 1. [F2021 updated] [The copier is broken (again)](Notes/problem_22.md)
 1. [F2021 updated] [I want to know what kind of Book I have](Notes/problem_23.md)
-1. [A Big Unit on Object Oriented Design](Notes/object_oriented_design.md)
+1. [F2021 updated] [A Big Unit on Object Oriented Design](Notes/object_oriented_design.md)
 1. [Shared Ownership](Notes/problem_24.md)
 1. [Abstraction over Iterators](Notes/problem_25.md)
 1. [I want an ever faster vector](Notes/problem_26.md)
@@ -55,7 +55,9 @@ reading sections are referenced to this book.
 1. [Continuation of structured Bindings (C++17)](Notes/discussion_5.md)
 1. [Range Abstraction (C++20)](Notes/discussion_6.md)
 1. [Unions Revisited (C++17)](Notes/discussion_7.md)
-2. [void* revisited (C++17)](Notes/discussion_8.md)
+1. [void* revisited (C++17)](Notes/discussion_8.md)
+1. [fold expression (C++17)](Notes/discussion_9.md)
+1. [std::variant revisited](Notes/discussion_10.md)
 
 
 ## Index
