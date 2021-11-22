@@ -44,6 +44,13 @@ reading sections are referenced to this book.
 1. [A fixed-size allocator](Notes/problem_34.md)
 1. [I want a (tiny bit) smaller vector class](Notes/problem_35.md)
 
+## 2021 Tutorials (pdf notes in odd numbers):
+1. [Shell](Notes/tutorial01.pdf)
+2. [Valgrind and GDB](Notes/tutorial03.pdf)
+3. [Git and VCS](Notes/tutorial05.pdf)
+4. [Recursive Descent parsing](Notes/tutorial07.pdf)
+5. [Model View Controller (MVC)](Notes/tutorial09.pdf)
+
 ## Other
 1. [Valgrind + GDB](Notes/tutorial_1.md)
 1. [Recursive Descent](Notes/tutorial_7.md)
