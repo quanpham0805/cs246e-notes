@@ -1,53 +1,78 @@
-[<< Resolving Method Overrides at Compile-Time](./problem_28.md) | [**Home**](../README.md) | [>> Logging](./problem_29.md)
+[<< Collecting Stats](./problem_26.md) | [**Home**](../README.md) | [>> Polymorphic Cloning](./problem_28.md)
 
-# Problem 28: Polymorphic Cloning
+# Problem 27 - Resolving Method Overrides at Compile-Time
 **2017-11-23**
 
-```C++
-Book *pb = ...;
-Book *pb2 = // I want an exact copy of *pb;
-```
-
-Can't call constructor directly (we don't know what `*pb` is, ie. don't know which constructor to call).
-
-**Standard Solution:** virtual clone method
+**Recall:** Template Method Pattern
 
 ```C++
-class Book {
-        ...
+class Turtle {
     public:
-        virtual Book *clone() { return new Book{*this}; }
+        void draw() {
+            drawHead();
+            drawShell();
+            drawFeet();
+        }
+    private:
+        void drawHead();
+        virtual void drawShell() = 0;   // vtable lookup
+        void drawFeet();
 };
 
-class Text: public Book {
-        ...
-    public:
-        Text *clone() override { return new Text{*this} ;}
+class RedTurtle: public Turtle {
+    void drawShell() override;
 };
-
-// Comic - similar
 ```
 
-Boilerplate code - can we reuse it?
-
-Works better with an abstract base class:
+**Consider:**
 
 ```C++
-class AbstractBook {
+template<typename T> class Turtle {
     public:
-        virtual AbstractBook *clone() = 0;
-        virtual ~AbstractBook();
+        void draw() {
+            drawHead();
+            static_cast<T *>(this)->drawShell();
+            drawFeet();
+        }
+    private:
+        void drawHead();
+        void drawFeet();
 };
 
-template<typename T> class Book_cloneable: public AbstractBook {
-    public:
-        T *clone() override { return new T{static_cast<T&>(*this)}; }
+class RedTurtle: public Turtle<RedTurtle> {
+    friend class Turtle;
+    void drawShell();
 };
 
-class Book: public Book_cloneable<Book> { ... };
-class Text: public Book_cloneable<Text> { ... };
-class Comic: public Book_cloneable<Comic> { ... };
+class GreenTurtle: public Turtle<GreenTurtle> {
+    friend class Turtle;
+    void drawShell();
+};
 ```
+
+No virtual method methods, no vtable lookup
+- Drawback: no relationship between `RedTurtle` & `GreenTurtle`
+    - Can't store a mix of them in a container
+
+Can give `Turtle` a parent:
+
+```C++
+template<typename T> class Turtle: public Enemy { ... };
+```
+
+Then can store `RedTurtles` and `GreenTurtles`
+- But then can't access the `draw` method
+- Could give Enemy a virtual `draw` method
+
+```C++
+class Enemy {
+    public:
+        virtual void draw() = 0;
+};
+```
+
+But then there will be a vtable lookup
+- On the other hand, if `Turtle::draw` calls several would-be virtual helpers, could trade away several vtable lookups for one
 
 ---
-[<< Resolving Method Overrides at Compile-Time](./problem_28.md) | [**Home**](../README.md) | [>> Logging](./problem_29.md)
+[<< Collecting Stats](./problem_26.md) | [**Home**](../README.md) | [>> Polymorphic Cloning](./problem_28.md)

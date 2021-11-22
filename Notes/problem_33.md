@@ -1,194 +1,98 @@
-[<< I want total control over vectors and lists](./problem_31.md) | [**Home**](../README.md) | [>> I want a (tiny bit) smaller vector class](./problem_33.md) 
+[<< Total Control](./problem_30.md) | [**Home**](../README.md) | [>> A fixed-size object allocator](./problem_32.md) 
 
-# Problem 32: A fixed-size object allocator
+# Problem 31: I want total control over vectors and lists
 **2017-11-29**
 
-A custom allocator can be fast.
-**Fixed size allocator:** all allocated "chunks" are the same size (ie. customaized code for one class) - no need to keep track of sizes
+Incoporating custom allocation into out containers.
 
-(aside - many many traditional allocators store the size of the block before the pointer so that the allocator knows how much space is allocated to that pointer.)
+**Issue:** may want different allocators for different kinds of vectors.
 
-**Fixed size:**
-- Saves space (no hidden size field)
-- Saves time (no hunting for a block of the right size)
+**Solution:** Make the allocator an argument to the template.
 
-**Approach:** create a pool of memory  - an array large enough to hold `n` `T` objects.
+Since most users won't write allocators, we'll need a  default value.
 
-When the client has a slot: `T` object
-
-When we have it: node in a linked list
-
-Each slot stores the index of the next slot in the list
-
-```
-FIRST
-+---+       +---+---+---+---+-----+----+
-| 0 |       | 1 | 2 | 3 | 4 | ... | -1 |
-+---+       +---+---+---+---+-----+----+
-
-              0   1   2   3         n-1
+**Template Signature:**
+```C++
+template<typename T, typename Alloc = allocator<T>> class vector { ... }
 ```
 
-Allocation: from the front
-
-```
-          Allocated
-+---+       +---+---+---+---+-----+----+
-| 1 |       |///| 2 | 3 | 4 | ... | -1 |
-+---+       +---+---+---+---+-----+----+
-
-              0   1   2   3         n-1
-
-+---+       +---+---+---+---+-----+----+
-| 2 |       |///|///| 3 | 4 | ... | -1 |
-+---+       +---+---+---+---+-----+----+
-
-              0   1   2   3         n-1
-```
-
-Deallocation: 
-
-```
-Free item 0
-+---+       +---+---+---+---+-----+----+
-| 0 |       | 2 |///| 3 | 4 | ... | -1 |
-+---+       +---+---+---+---+-----+----+
-
-              0   1   2   3         n-1
-
-Free item 1
-+---+       +---+---+---+---+-----+----+
-| 2 |       | 2 | 0 | 3 | 4 | ... | -1 |
-+---+       +---+---+---+---+-----+----+
-
-              0   1   2   3         n-1
-```
-
-_Implementation:_
+Now write the interface for allocators and the allocator template:
 
 ```C++
-template<typename T, int n> class fsAlloc {
-    private:
-        union Slot {
-            int next;
-            T data;
-            Slot(): next{0} {}
-        };
+template<typename T> struct allocator {
+    using value_type = T;
+    using pointer = T*;
+    using reference = T&;
+    using const_pointer = const T*;
+    using const_reference = const T&;
+    using size_type = size_t;
+    using difference_type = ptrdiff_t; 
 
-        Slot theSlots[n];
-        int first = 0;
-    public:
-        fsAlloc() {
-            for (int i = 0; i < n - 1; ++i) {
-                theSlots[i].next = i + 1;
-            }
-            theSlots[n - 1].next = -1;
-        }
+    allocator() noexcept {} // Trivial - no data members
+    allocator(const allocator &) noexcept {}
+    template<typename U> allocator(const allocator<U> &) noexcept {} 
+    ~allocator() {}
 
-        T *allocate() noexcept {
-            if (first == -1) return nullptr;
-            T *result = &(theSlots[first].data);
-            first = theSlots[first].next;
-            return result;
-        }
-
-        void deallocate(void *item) noexcept {
-            int index = (static_cast<char*>(item) - reinterpret_cast<char*>(theSlots)) / sizeof(Slot);
-            theSlots[index].next = first;
-            first = index;
-        }
+    pointer address(reference x) const noexcept { return &x; }
+    pointer allocate(size_type n) { return ::operator new(n * sizeof(T)); }
+    pointer deallocate(pointer p, size_type n) { ::operator delete(p)); }
+    size_type max_size() const noexcept {
+        return std::numeric_traits<size_type>::max(sizeof(value_type));
+    }
+    template<typename U, typename ...Args>
+    void construct(U *p, Args &&... args) {
+        ::new(static_cast<void*>(p)) U(forward<Args>(args)...);
+    }
+    template<typename U> void destroy(U *p) { p->~U(); }
 };
 ```
 
-Use in a class:
+If you want to write an allocator for an STL container, this is its interface.
 
+**Note:** `operator new` takes a number of _bytes_, but `allocate` takes a number of _objects_.
+
+What happens if a vector is copied? Copy the allocator? What happens if you copy an allocator? Can 2 copies allocate/deallocate each other's memory?
+
+C++03 allocators must be stateless - copying allocators is allowed and trivial
+C++11 allocators can have state, can specify copying behaviour via allocator traits
+
+Adapting `vector`:
+- `vector` has a field `Aloc alloc`;
+- everywhere `vector` calls 
+    - `operator new`, replace with `alloc.allocate`
+    - `placement new`, replace with `alloc.construct`
+    - `dtor` explicitly, replace with `alloc.destroy`
+    - `operator delete`, replace with `alloc.deallocate`
+    - takes an address, replace with `alloc.address`
+- Details: exercise
+
+Can we do the same with list?
 ```C++
-class Student final {
-        int assns, mt, final;     
-        static fsAlloc<Student, SIZE> pool; // SIZE - how many you want
-    public:
-        ...
-        static void* operator new(size_t size) {
-            if (size != sizeof(Student)) throw std::bad_alloc;
-            while (true) {
-                void *p = pool.allocate();
-                ...
-            }
-        }
-
-        static void* operator delete(void *p) noexcept {
-            if (p == nullptr) return;
-            pool.deallocate(p);
-        }
-};
-
-fsAlloc<Student, SIZE> Student::pool;
+template<typename T, template Alloc = allocator<T>> class list { ... }
 ```
 
-_Example main:_
-```C++
-int main() {
-    Student *s1 = new Student;  // Uses custom allocator
-    Student *s2 = new Student;  // Uses custom allocator
-    delete s1;
-    delete s2;
-}
-```
+Correct so far... but curiously, `Alloc` will never be used to allocate memory in a list.
 
-**Q:** Where do `s1` and `s2` reside?
-**A:** Static memory (NOT the heap)
-- Could arrange for stack/heap memory
+Why not? lists are node-based, which means you don't want to actually allocate `T` objects; you want to allocate nodes (which contains `T` objects and pointers.)
+- but `Alloc` allocates `T` objects
 
-**More notes:** 
-- We used a union to hold both `int *T` - wastes less space
-- We could have used a struct `[ next | T ]`
-    - Disadvantage: if you access a dangling `T` pointer, you can corrupt the linked list
-    ```C++
-    Student *s = new Student;
-    delete s;
-    s->setAssns(...);
-    ```
-- Lesson: following a dangling pointer can be VERY dangerous
-- With a struct, `next` is before the `T` object, so you have to work hard to corrupt it.
-```C++
-reinterpret_cast<int *>(s)[-1] = ...
-```
-
-On the other hand - with a struct - problems if `T` doesn't have a default constructor
+How do we get an allocator for nodes?
+- Every conforming allocator has a member template called `rebind` that gives the allocator type for another type:
 
 ```C++
-struct Slot {
-    int next;
-    T data;
-};
-
-Slot theSlots[n];   // X - if T has no default constructor
-```
-
-Can't do `operator new`/`placement new`
-
-```C++
-union SlotChar {
-    char dummy; // As before
-    slot s;
-    SlotChar(): dummy{0} {}
+template <typename T> struct allocator {
+    template <typename U> struct rebind {
+        using other = allocator<U>;
+    }; 
 };
 ```
 
-Also:
-- Why store indices instead of pointers?
-- Smaller than pointers on this machine
-- So waste no memory as long as `T` >= size of an `int`
-- Would waste if `T` smaller than an `int`
-- Could use a smaller index than an `int`
-- could use a smaller index type, ex. `short`, `char`
-    - (as long as you don't want more items than the type can hold)
-- Could make the index type a parameter of the template
-- `Student final` - fixed-size allocator - subclasses might be larger
-- Options: 
-    - Have no subclasses
-    - Check size, throw if it isn't the right size
-    - Derived class can have its own allocator
+Within `list` - to create an allocator for nodes as a field of list:
+```C++
+Allocator::rebind<Node>::other alloc;
+```
+
+Then use as in vector. Details: exercise
 
 ---
-[<< I want total control over vectors and lists](./problem_31.md) | [**Home**](../README.md) | [>> I want a (tiny bit) smaller vector class](./problem_33.md) 
+[<< Total Control](./problem_30.md) | [**Home**](../README.md) | [>> A fixed-size object allocator](./problem_32.md) 

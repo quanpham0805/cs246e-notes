@@ -1,98 +1,165 @@
-[<< Total Control](./problem_30.md) | [**Home**](../README.md) | [>> A fixed-size object allocator](./problem_32.md) 
+[<< Logging](./problem_29.md) | [**Home**](../README.md) | [>> I want total control over vectors and lists](./problem_31.md) 
 
-# Problem 31: I want total control over vectors and lists
-**2017-11-29**
+# Problem 30: Total Control
+**2017-11-28**
 
-Incoporating custom allocation into out containers.
+Can control:
+- Parameter passing
+- Initialization
+- Method call resolution
+- Etc.
 
-**Issue:** may want different allocators for different kinds of vectors.
+Control over memory allocation:
 
-**Solution:** Make the allocator an argument to the template.
-
-Since most users won't write allocators, we'll need a  default value.
-
-**Template Signature:**
-```C++
-template<typename T, typename Alloc = allocator<T>> class vector { ... }
-```
-
-Now write the interface for allocators and the allocator template:
-
-```C++
-template<typename T> struct allocator {
-    using value_type = T;
-    using pointer = T*;
-    using reference = T&;
-    using const_pointer = const T*;
-    using const_reference = const T&;
-    using size_type = size_t;
-    using difference_type = ptrdiff_t; 
-
-    allocator() noexcept {} // Trivial - no data members
-    allocator(const allocator &) noexcept {}
-    template<typename U> allocator(const allocator<U> &) noexcept {} 
-    ~allocator() {}
-
-    pointer address(reference x) const noexcept { return &x; }
-    pointer allocate(size_type n) { return ::operator new(n * sizeof(T)); }
-    pointer deallocate(pointer p, size_type n) { ::operator delete(p)); }
-    size_type max_size() const noexcept {
-        return std::numeric_traits<size_type>::max(sizeof(value_type));
+Memory allocators are tricky to write, so we have 2 questions:
+- **Why write an allocator?**
+    - Built-in one is too slow
+    - General purpose, not optimized for specific use
+        - Ex. If you know you will always allocate objects of the same size, a custom allocator may perform better
+        - Ex. Optimize locaility
+            - Maybe you want a separate heap, just for objects of some class `C`, keeps the objects close to each other. May improve performance.
+        - Ex. You want to use "special memory"
+            - Put objects in shared memory
+        - Ex. You want to profile your program
+            - Collect stats
+- **How do you customize an allocation?**
+    - Overload `operator new`
+    - If you define a global non-member `operator new`, all allocations in your program will use your allocator
+    - Also if you write `operator new`, you need to write `operator delete`. Else undefined behaviour
+    - Ex.
+    ```C++
+    void *operator new(size_t size) {
+        std::cout << "Request for " << size << "bytes\n";
+        return malloc(size);
     }
-    template<typename U, typename ...Args>
-    void construct(U *p, Args &&... args) {
-        ::new(static_cast<void*>(p)) U(forward<Args>(args)...);
+    ```
+    ```C++
+    void operator delete(void *p) {
+        std::cout << "Freeing " << p << std::endl;
+        free(p);
     }
-    template<typename U> void destroy(U *p) { p->~U(); }
-};
-```
+    ```
+    ```C++
+    int main() {
+        int *x = new int;
+        delete x;
+    }
+    ```
+    - Works but is not correct. Doesn't adhere to convention
+        - If `operator new` fails, it is supposed to throw `bad_alloc`
+        - But actually if `operator new` fails, it is supposed to call the `new_handler` function
+            - The `new_handler` can:
+                - Free up space (somehow)
+                - Install a different `new_handler`/uninstall the current
+                - Throw `bad_alloc`
+                - Abort/exit
+            - `new_handler` should be called in an infinite loop
+            - If `new_handler` is a `nullptr`, `operator_new` throws
+            - Also `new` must return a valid pointer if `size == 0` and `delete` of a `nullptr` must be safe
+    - Correct implementation:
+    ```C++
+    #include <new>
+    void *operator new(size_t size) {
+        std::cout << " " << 
+        if (size == 0) size = 1;
+        while (true) {
+            void *p = malloc(size);
+            if (p) return p;
+            std::new_handler h = std::set_new_handler();
+            std::set_new_handler(h);
+            if (h) h();
+            else throw std::bad_alloc{};
+        }
+    }
+    void operator delete(void *p) {
+        if (p == nullptr) return;
+        std::cout << "Deleting" << p << std::endl;
+        free(p);
+    }
+    ```
+    - Replacing global `operator new`/`delete` affects your entire program
+    - More likely - replace on a class-by-class basis
+        - Especially if you are writing allocators specifically tuned to the sizes of your objects
+    - To do this - make `operator new`/`delete` members
+        - Must be `static` members
+    ```C++
+    class C {
+        public:
+            static void *operator new(size_t size) {
+                std::cout << "Running class C's allocator" << std::endl;
+                return operator new(size);
+            }
+            static void operator delete(void *p) noexcept {
+                std::cout << "Freeing " << p << std::endl;
+                ::operator delete(p);   // :: refers to global namespace
+            }
+    };
+    ```
+    - Generalize - log to an arbitrary stream
+    ```C++
+    class C {
+        public:
+            static void *operator new(size_t size, std::ostream &out) {
+                out << "Running class C's allocator" << std::endl;
+                return operator new(size);
+            }
+    };
+    ```
+    ```C++
+    C *x = new(std::cout) C;  // log to cout
+    ofstream f{...}
+    C *y = new(f) C;
+    ```
+    - Note when you create a `new` that takes in parameters, it is called **placement new**, not to be confused with the other **placement new** where you intialize an object into already allocated memory
+    - Must also write the corresponding "placement" `delete`.
+    ```C++
+    class C {
+        public:
+            ...
+            static void operator delete(void *p, std::ostream &out) noexcept {
+                out << "Placement delete: " << p << std::endl;
+                ::operator delete(p);   
+            }
+    };
+    ```
+    - Won't compile! You also need "ordinary" delete
+    ```C++
+    class C {
+        public:
+            ...
+            static void operator delete(void *p) noexcept {
+                std::cout << "Ordinary delete (cout): " << p << std::endl;
+                ::operator delete(p);   
+            }
+    };
+    ```
+    ```C++
+    C *p = new(cout) C; // Running C's allocator
+    delete p;   // Ordinary delete (cout)
+    ```
+    - If the client calls `delete p`, there needs to be a non-specialized `operator delete`, else compile-error
+    - How can you call sepcialized delete? You can't
+    - Then why do we need it?
+    - If the constructor the called specialized `operator new` throws, it will call the specialized `operator delete` that matches `operator new`
+        - If there isn't one, no `delete` gets called => leak
+    - Ex.
+    ```C++
+    class C {
+        ...
+        public:
+            C(bool b) { if (b) throw 0; }
+    };
+    ```
+    ```C++
+    try {
+        C *p = new(std::cout) C{true};  // throws, calls specialized delete
+        delete p; // Not reached
+    } catch(...) {}
+    C *q = new(std::cout) C{false}  // Does not throw
+    delete q;   // Ordinary operator delete
+    ```
 
-If you want to write an allocator for an STL container, this is its interface.
-
-**Note:** `operator new` takes a number of _bytes_, but `allocate` takes a number of _objects_.
-
-What happens if a vector is copied? Copy the allocator? What happens if you copy an allocator? Can 2 copies allocate/deallocate each other's memory?
-
-C++03 allocators must be stateless - copying allocators is allowed and trivial
-C++11 allocators can have state, can specify copying behaviour via allocator traits
-
-Adapting `vector`:
-- `vector` has a field `Aloc alloc`;
-- everywhere `vector` calls 
-    - `operator new`, replace with `alloc.allocate`
-    - `placement new`, replace with `alloc.construct`
-    - `dtor` explicitly, replace with `alloc.destroy`
-    - `operator delete`, replace with `alloc.deallocate`
-    - takes an address, replace with `alloc.address`
-- Details: exercise
-
-Can we do the same with list?
-```C++
-template<typename T, template Alloc = allocator<T>> class list { ... }
-```
-
-Correct so far... but curiously, `Alloc` will never be used to allocate memory in a list.
-
-Why not? lists are node-based, which means you don't want to actually allocate `T` objects; you want to allocate nodes (which contains `T` objects and pointers.)
-- but `Alloc` allocates `T` objects
-
-How do we get an allocator for nodes?
-- Every conforming allocator has a member template called `rebind` that gives the allocator type for another type:
-
-```C++
-template <typename T> struct allocator {
-    template <typename U> struct rebind {
-        using other = allocator<U>;
-    }; 
-};
-```
-
-Within `list` - to create an allocator for nodes as a field of list:
-```C++
-Allocator::rebind<Node>::other alloc;
-```
-
-Then use as in vector. Details: exercise
+Customizing array allocation - overload `operator new[]` and `operator delete[]`.
 
 ---
-[<< Total Control](./problem_30.md) | [**Home**](../README.md) | [>> A fixed-size object allocator](./problem_32.md) 
+[<< Logging](./problem_29.md) | [**Home**](../README.md) | [>> I want total control over vectors and lists](./problem_31.md) 

@@ -1,65 +1,53 @@
-[<< Polymorphic Cloning](./problem_28.md) | [**Home**](../README.md) | [>> Total Control](./problem_30.md)
+[<< Resolving Method Overrides at Compile-Time](./problem_28.md) | [**Home**](../README.md) | [>> Logging](./problem_29.md)
 
-# Problem 29: Logging
+# Problem 28: Polymorphic Cloning
 **2017-11-23**
 
-We want to encapsulate logging functionality and "add" it to any class.
-
 ```C++
-template<typename T, typename Data> class Logger {
-    public:
-        void loggedSet(Data x) {
-            std::cout << "setting data to " << x << std::endl;
-            static_cast<T*>(this)->set(x);  // No virtual call overhead
-        }
-};
-
-class Box: public Logger<Box, int> {
-        friend class Logger<Box, int>;
-        int x;
-        void set(int y) { x = -y; }
-    public:
-        Box(): x{0} { loggedSet(0); }
-};
-
-Box b;
-b.loggedSet(1);
-b.loggedSet(4);
-// etc.
+Book *pb = ...;
+Book *pb2 = // I want an exact copy of *pb;
 ```
 
-Another approach:
+Can't call constructor directly (we don't know what `*pb` is, ie. don't know which constructor to call).
+
+**Standard Solution:** virtual clone method
 
 ```C++
-class Box {
-        int x;
+class Book {
+        ...
     public:
-        Box(): x{0} {}
-        void set(int y) { x = y ;}
+        virtual Book *clone() { return new Book{*this}; }
 };
 
-                                    // Mixin Inheritance
-template<typename T, typename Data> class Logger: public T {
+class Text: public Book {
+        ...
     public:
-        void loggedSet(Data x) {
-            std::cout << "setting to" << x << std::endl;
-            set(x); // No vtable overhead
-        } 
+        Text *clone() override { return new Text{*this} ;}
 };
 
-using BoxLogger = Logger<Box, int>;
-Boxlogger b;
-b.loggedSet(1);
-b.loggedSet(4);
-//etc.
+// Comic - similar
 ```
 
-**Mixins** - can mix and match subclass functionality without writing new classes
+Boilerplate code - can we reuse it?
 
-Note: if `SpecialBox` is a subclass of `Box`, then `SpecialBox` has no relation to `Logger<Box, int>`. Nor is there any relationship between `Logger<SpecialBox, int>`, `Logger<Box, int>`.
+Works better with an abstract base class:
 
-But with CRTP, `SpecialBox` is a subtype of `Logger<Box, int>`
-- Can specialize behaviour of virtual functions
+```C++
+class AbstractBook {
+    public:
+        virtual AbstractBook *clone() = 0;
+        virtual ~AbstractBook();
+};
+
+template<typename T> class Book_cloneable: public AbstractBook {
+    public:
+        T *clone() override { return new T{static_cast<T&>(*this)}; }
+};
+
+class Book: public Book_cloneable<Book> { ... };
+class Text: public Book_cloneable<Text> { ... };
+class Comic: public Book_cloneable<Comic> { ... };
+```
 
 ---
-[<< Polymorphic Cloning](./problem_28.md) | [**Home**](../README.md) | [>> Total Control](./problem_30.md)
+[<< Resolving Method Overrides at Compile-Time](./problem_28.md) | [**Home**](../README.md) | [>> Logging](./problem_29.md)

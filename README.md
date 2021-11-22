@@ -31,17 +31,18 @@ reading sections are referenced to this book.
 1. [F2021 updated] [The copier is broken (again)](Notes/problem_22.md)
 1. [F2021 updated] [I want to know what kind of Book I have](Notes/problem_23.md)
 1. [F2021 updated] [A Big Unit on Object Oriented Design](Notes/object_oriented_design.md)
-1. [Shared Ownership](Notes/problem_24.md)
-1. [Abstraction over Iterators](Notes/problem_25.md)
-1. [I want an ever faster vector](Notes/problem_26.md)
-1. [Collecting Stats](Notes/problem_27.md)
-1. [Resolving Method Overrides at Compile Time](Notes/problem_28.md)
-1. [Polymorphic Cloning](Notes/problem_29.md)
-1. [Logging](Notes/problem_30.md)
-1. [Total Control](Notes/problem_31.md)
-1. [I want total control over vectors and lists](Notes/problem_32.md)
-1. [A fixed-size allocator](Notes/problem_33.md)
-1. [I want a (tiny bit) smaller vector class](Notes/problem_34.md)
+1. [F2021 updated] [Shared Ownership](Notes/problem_24.md)
+1. [F2021 updated] [Abstraction over Iterators](Notes/problem_25.md)
+1. [F2021 updated] [Generalize the Visitor pattern](Notes/problem_26.md)
+1. [F2021 updated] [I want an ever faster vector](Notes/problem_27.md)
+1. [Collecting Stats](Notes/problem_28.md)
+1. [Resolving Method Overrides at Compile Time](Notes/problem_29.md)
+1. [Polymorphic Cloning](Notes/problem_30.md)
+1. [Logging](Notes/problem_31.md)
+1. [Total Control](Notes/problem_32.md)
+1. [I want total control over vectors and lists](Notes/problem_33.md)
+1. [A fixed-size allocator](Notes/problem_34.md)
+1. [I want a (tiny bit) smaller vector class](Notes/problem_35.md)
 
 ## Other
 1. [Valgrind + GDB](Notes/tutorial_1.md)
@@ -99,7 +100,7 @@ Work in progress (feel free to contribute)!
 - Coupling
     - [A Big Unit on OO Design](Notes/object_oriented_design.md)
 - The Curiously Recurring Template Pattern (CRTP)
-    - [27](Notes/problem_27.md)
+    - [28](Notes/problem_28.md)
 
 ### D
 - Decorator Pattern
@@ -199,7 +200,7 @@ Work in progress (feel free to contribute)!
 - Separate Compilation
     - [2](Notes/problem_2.md)
 - SFINAE (Substitution Failure Is Not An Error)
-    - [26](Notes/problem_26.md)
+    - [27](Notes/problem_27.md)
 - Single Responsiblity Principle
     - [A Big Unit on OO Design](Notes/object_oriented_design.md)
 - SOLID Principles of OO Design
@@ -232,6 +233,7 @@ Work in progress (feel free to contribute)!
     - [A Big Unit on OO Design](Notes/object_oriented_design.md)
 - Visitor Pattern
     - [A Big Unit on OO Design](Notes/object_oriented_design.md)
+    - [26](Notes/problem_26.md)
 - Vtable
     - [19](Notes/problem_19.md)
 
@@ -275,4 +277,5 @@ Also Install xwindows server, eg. Xming, XQuartz
 - C++17, C++20 features during discussion sessions.
 
 ## Todo:
-- [ ] Introduced new `problem_2` and as a result, we need to move all the old files + 1. Need to update those as we go (header and footer for each file).
+- [ ] Introduced new `problem_2` and as a result, we need to move all the old files except p1 + 1. Need to update those as we go (header and footer for each file).
+- [ ] Introduced new `problem_26` and as a result, we need to move all the old files from old 26 onwards + 2. Need to update those as we go (header and footer for each file).
