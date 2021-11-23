@@ -39,7 +39,7 @@ struct forward_iterator_tag: input_iterator_tag{};
 struct bidirectional_iterator_tag: input_iterator_tag{};
 struct random_access_iterator_tag: bidirectional_iterator_tag{};
 ```
-These are called `tag`, a class or struct with no fields and an empty body.
+These are called `tag`, a class or struct with no fields and an empty body. This technique is called **tag dispatching**, done until C++17, and replaced by **concepts** in C++20 (ref-link [here](https://internalpointers.com/post/writing-custom-iterators-modern-cpp))
 
 To associate each iterator class with a `tag`, could use inheritance:
 
