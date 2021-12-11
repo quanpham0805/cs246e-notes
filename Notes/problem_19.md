@@ -368,7 +368,7 @@ Comic b2;
 | Length |
 +--------+
 ```
-Non-virutal methods are just ordinary function calls.
+Non-virtual methods are just ordinary function calls.
 
 If there is at least one virtual method in the class:
 - Compiler creates a table of function pointers:
