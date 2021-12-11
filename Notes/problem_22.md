@@ -12,7 +12,7 @@ Text::Text(const Text &other): Book{other}, topic{other.topic} {}
 
 **Move constructor:** 
 ```C++
-Text::Text(const Text &other): 
+Text::Text(Text &&other): 
     Book{std::move(other)}, 
     topic{std::move(other.topic)} {}
 ```
