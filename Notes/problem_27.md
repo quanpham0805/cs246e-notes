@@ -1,4 +1,4 @@
-[Generalize the Visitor pattern <<](./problem_26.md) | [**Home**](../README.md) | [>> Collecting Stats](./problem_28.md)
+[Generalize the Visitor pattern <<](./problem_26.md) | [**Home**](../README.md) | [>> I want to print the unprintable!](./problem_28.md)
 
 # Problem 27: I want an even faster vector
 ## **2021-11-18**
@@ -183,20 +183,21 @@ public:
 ## Move / Forward implementation
 
 <u>Aside:</u> We now have enough machinery to implement `std::move` and `std::forward`.
-
-_`std::move`_ - first attempt
+- _`std::move`_ - treat a lvalue as a rvalue (cast).
+- First attempt
 ```C++
 template<typename T> T &&move(T & x) {
     return static_cast<T &&>(x);
 }
 ```
 
-Doesn't quite work, `T&&` is a universal reference, not an rvalue reference. If `x` was an lvalue reference, `T&&` is an lvalue reference.
+Doesn't quite work, `T&&` is a universal reference, not necessarily an rvalue reference. If `x` was a lvalue reference, `T&&` is a lvalue reference.
 - Need to make sure `T` is not an lvalue reference
     - If `T` is an lvalue reference, get rid of the reference
+    - Basically we get rid of all the ref to get the bare type with `std::remove_reference`.
 
 ```C++
-template<typename T> inline typename std::remove_reference<T>::type && move(T &&x) {
+template<typename T> inline typename std::remove_reference<T>::type&& move(T&& x) {
     return static_cast<typename std::remove_reference<T>::type &&>(x);
     // turns T&, T&& into T
 }
@@ -205,10 +206,13 @@ template<typename T> inline typename std::remove_reference<T>::type && move(T &&
 **Exercise:** write `remove_reference`
 
 **Q:** can we save typing and use `auto`? Ex.
-    ```C++
-    template<typename T> auto move(T &&x) { ... }
-    ```
-**A:** No! By-value auto throws away reference and outer consts
+
+```C++
+template<typename T> auto move(T &&x) { ... }
+```
+
+**A:** No! By-value auto throws away reference and outer const
+- Recall that `auto x = y` gives x the same type as the **value** of y (i.e, the type of `y` as if it was copied)
 
 ```C++
 int z;
@@ -219,19 +223,23 @@ const int &w = z;
 auto v = w; // int
 ```
 
-By reference, `auto &&` is a universal reference
+By reference, `auto &&` is a universal reference, so the code from the question section works (it does compile), but not as we expected.
+
+But still... is there a way to do type deduction without losing ref and const?
 
 Need a type definition rule that doesn't discard references.
 
+The answer is yes, by using `decltype`. It produces the type its argument was declared to have.
+
+**Note**: The argument of `decltype` is never evaluated, only type-checked.
+
 ```C++
-decltype(...)  // returns the type that ... was declared to have
 decltype(var)  // returns the declared type of the variable
-decltype(expr) // returns lvalue or rvalue, depending on whether the expr 
-               //  is an lvalue or rvalue
+decltype(expr) // returns lvalue or rvalue, depending on whether the expr is an lvalue or rvalue
 
 int z;
 int &y = z;
-decltype(y) x = z;  // x is an int&
+decltype(y) x = z;  // x is an int&, auto would only give you int
 x = 4;  // Affects z
 
 /* Path/Example 1 */
@@ -243,11 +251,15 @@ decltype(z) s = z;  // s is an int
 s = 5; // Does not affect z
 
 /* Path/Example 3 */
-decltype((z)) r = z;    // r is in int&&, since (z) is a ref.
+decltype((z)) r = z;    // r is an int&, since (z) is a ref, since () is an expression
 r = t;  // Does affect z
 
 decltype(auto) - perform type deduction, like auto, but use the decltype rules
 ```
+
+Can we do type deduction using the `decltype` rules instead of the auto rules? 
+
+Yes - use `decltype(auto)`
 
 ```C++
 template<typename T> decltype(auto) move(T &&x) {
@@ -255,12 +267,14 @@ template<typename T> decltype(auto) move(T &&x) {
 }
 ```
 
+- Let's try implementing `std::forward`
 _`std::forward`_
 ```C++
-template<typename T> inline T&& move(T &&x) {
+template<typename T> T&& forward(T &&x) {
     return static_cast<T&&>(x);
 }
 ```
+- Doesn't seem right - casting `x` to its own type.
 
 **Reasoning:**
 - If `x` is an lvalue, `T&&` is an lvalue reference
@@ -269,16 +283,16 @@ template<typename T> inline T&& move(T &&x) {
 Doesn't work, `forward` is called on expressions that are lvalues, that may point at rvalues.
 
 ```C++
-template<typename T> void f(T&& y) {
+template<typename U> void f(U&& y) {
     ... forward(y) ...  // y is an lvalue
 }
 ```
 
-`forward(y)` is will _always_ yield an lvalue referernce.
+`forward(y)` is will _always_ yield an lvalue reference.
 
-In order to work, `forward` must know what type (including l/rvalue) was deduced for `y`, ie. needs to know `T`.
+In order to work, `forward` must know what type (including l/rvalue) was deduced for `y`, ie. needs to know `U`.
 
-So in principle, `forward<T>(y)` would work.
+So in principle, `forward<U>(y)` would work.
 
 **2 Problems:**
 - Supplying `T` means `T&&` is no longer universal
@@ -299,4 +313,4 @@ inline constexpr T&& forward(std::removed_reference_t<T>&&x) noexcept {
 ```
 
 ---
-[Generalize the Visitor pattern <<](./problem_26.md) | [**Home**](../README.md) | [>> Collecting Stats](./problem_28.md)
+[Generalize the Visitor pattern <<](./problem_26.md) | [**Home**](../README.md) | [>> I want to print the unprintable!](./problem_28.md)

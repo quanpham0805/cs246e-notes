@@ -1,79 +1,75 @@
-[<< I want an even faster vector](./problem_25.md) | [**Home**](../README.md) | [>> Resolving Method Overrides at Compile-Time](./problem_27.md)
+[I want an even faster vector <<](./problem_27.md) | [**Home**](../README.md) | [>> Collecting Stats](./problem_29.md)
 
-# Problem 26: Collecting Stats
-**2017-11-23**
+# Problem 28: I want to print the unprintable!
+## **2021-11-23**
 
-I want to know how many `Student`s I create. 
+Recall [problem 7](Notes/../problem_7.md): 
+- Wanted to print a `vector`
+- `vector` used to hold int
+- now is a template
 
-```C++
-class Student {
-        int assns, mt, finals;
-        static int count;   // Associated with the class, not one per object
-    public:
-        Student(...) { ++count; }
-        static int getCount() { return count; } // static methods
-};
-```
+Can do a templated `operator<<`
+- Will work if `T` is printable
+- won't compile otherwise
 
-- `static` methods have no `this` parameter
-    - Thus not really a method, more like scoped function
+What we want now:
+- print `T` if `T` is printable
+- print a default msg (e.g, "unprintable") in case `T` is not printable
 
-_`.cc`_
-```C++
-int Student::count = 0; // must define the variable
-```
+How might we do this?
+- two overloads for the two different behaviors
 
-Now
+```cpp
+struct true_type {};
+struct false_type {};
 
-```C++
-Student s1{...}, s2{...}, s3{...};
+template <typename T> void doOutput(const T& x, true_type) {
+    std::cout << x;
+}
 
-std::cout << Student::getCount() << std::endl;
-```
-
-Now I want to count objects in other classes. How do we abstract the solution into reusable code.
-
-```C++
-template<typename T> struct Count {
-        static int count;
-        Count() { ++count; }
-        Count(const Count &) { ++count; }
-        Count(const &&) { ++count; }
-        ~Count() { --count; }
-        static int getCount() { return count; }
-};
-
-template<typename T> int Count<t>::count = 0;
-```
-
-```C++
-class Student: count<Student> {
-        int assns, mt, final;
-    public:
-        Student(...): ...
-        // accessors
-        using Count<Student>::getCount; // Make this function visible 
+template <typename T> void doOutput(const T& x, false_type) {
+    std::cout << "unprintable" << std::endl;
 }
 ```
 
-- **Private Inheritance**
-    - inherits `Count`'s implementation without creating an "is-a" relationship
-    - Members of  `Count` become private in `Student`
+Top-level wrapper:
 
-Now we can easily add it to other classes:
-```C++
-class Book:Count<Book> {
-        ...
-    public:
-        using Count<Book>::getCount;
+```cpp
+template <typename T> void output (const T& x) {
+    doOutput(x, typename has_output<T>::type{});
+}
+```
+- Given `T`, should produce `true_type` if `T` supports output, false otherwise.
+- How do we do this???
+
+```cpp
+template <typename T> struct has_output {
+    using type = decltype(output_test<T>(0));
 };
 ```
+- Recall `decltype` only test the types of the expression, but not evaluating it (we don't want it to be evaluated anyway).
+- Now we overload function `output_test` such that a version returning `false_type` is always available, but the version returning `true_type` is a better match, but is only available if `T` supports output.
 
-Why is `Count` a template?
-- So that for each class `C`, `class C: Count<C>` creates a new unique, instantiation of `Count` for each `C`. This gives `C` its own counter vs. sharing one counter over all subclasses
+```cpp
+// no need any implementation since we won't even run it anyway
+template <typename T> false_type output_test(...);
 
-This technique (inheriting from a template specialized by yourself)
-- Looks weird, but happens enough to have its own name: **The Curiously Recurring Template Pattern (CRTP)**
+template <typename T, typename = decltype(cout << T())> true_type output_test(int);
+```
+- If `T` has output, then `typename` has type `ostream`, and otherwise it would be invalid (but still compile because SFINAE)
+- Putting `(int)` will always guarantee that it is a better match.
+- Ok well, what if `T` doesn't have a default ctor? That would be invalid even though `T` is printable (wrong result)?
+- Hack: we don't actually need a `T` object to perform the cout anyway (because it would never need to be constructed), so what's the other way we could make a `T` object? A function that return `T`. Do we have one? Doesn't matter, we can pretend we do.
+
+```cpp
+template <typename T> T&& declval();
+```
+- use refs here so that we don't assume that `T` has a copy/move ctor
+- Now we have
+
+```cpp
+template <typename T, typename = decltype (cout << declval<T>())> true_type output_test(int);
+```
 
 ---
-[<< I want an even faster vector](./problem_25.md) | [**Home**](../README.md) | [>> Resolving Method Overrides at Compile-Time](./problem_27.md)
+[I want an even faster vector <<](./problem_27.md) | [**Home**](../README.md) | [>> Collecting Stats](./problem_29.md)

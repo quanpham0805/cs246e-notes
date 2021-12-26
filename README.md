@@ -35,6 +35,7 @@ reading sections are referenced to this book.
 1. [F2021 updated] [Abstraction over Iterators](Notes/problem_25.md)
 1. [F2021 updated] [Generalize the Visitor pattern](Notes/problem_26.md)
 1. [F2021 updated] [I want an ever faster vector](Notes/problem_27.md)
+1. [F2021 updated] [I want to print the unprintable!](Notes/problem_28.md)
 1. [Collecting Stats](Notes/problem_28.md)
 1. [Resolving Method Overrides at Compile Time](Notes/problem_29.md)
 1. [Polymorphic Cloning](Notes/problem_30.md)
@@ -107,7 +108,7 @@ Work in progress (feel free to contribute)!
 - Coupling
     - [A Big Unit on OO Design](Notes/object_oriented_design.md)
 - The Curiously Recurring Template Pattern (CRTP)
-    - [28](Notes/problem_28.md)
+    - [29](Notes/problem_29.md)
 
 ### D
 - Decorator Pattern
@@ -285,4 +286,5 @@ Also Install xwindows server, eg. Xming, XQuartz
 
 ## Todo:
 - [ ] Introduced new `problem_2` and as a result, we need to move all the old files except p1 + 1. Need to update those as we go (header and footer for each file).
-- [ ] Introduced new `problem_26` and as a result, we need to move all the old files from old 26 onwards + 2. Need to update those as we go (header and footer for each file).
+- [ ] Introduced new `problem_26` and as a result, we need to move all the old files from old 26 onwards + 1. Need to update those as we go (header and footer for each file).
+- [ ] - [ ] Introduced new `problem_28` and as a result, we need to move all the old files from old 28 onwards + 1. Need to update those as we go (header and footer for each file).

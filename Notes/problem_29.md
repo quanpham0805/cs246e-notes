@@ -1,78 +1,82 @@
-[<< Collecting Stats](./problem_26.md) | [**Home**](../README.md) | [>> Polymorphic Cloning](./problem_28.md)
+[I want to print the unprintable! <<](./problem_28.md) | [**Home**](../README.md) | [>> Resolving Method Overrides at Compile-Time](./problem_30.md)
 
-# Problem 27 - Resolving Method Overrides at Compile-Time
-**2017-11-23**
+# Problem 29: Collecting Stats
+## **2021-11-23**
 
-**Recall:** Template Method Pattern
+I want to know how many `Student`s I created.
 
 ```C++
-class Turtle {
+class Student {
+        int assns, mt, finals;
+        static int count;   // Associated with the class, not one per object
     public:
-        void draw() {
-            drawHead();
-            drawShell();
-            drawFeet();
-        }
-    private:
-        void drawHead();
-        virtual void drawShell() = 0;   // vtable lookup
-        void drawFeet();
-};
-
-class RedTurtle: public Turtle {
-    void drawShell() override;
+        Student(...) { ++count; }
+        static int getCount() { return count; } // static methods
 };
 ```
 
-**Consider:**
+- `static` methods have no `this` parameter
+- Thus not really a method, more like scoped function
+- Moreover, the variable is not defined, when we include in headers, it would be declared over and over. Thus, we have to do the following:
+
+_`.cc`_
+```C++
+int Student::count = 0; // must define the variable
+```
+
+- Latter versions cleaned this up (>= 17)
+
+Now
 
 ```C++
-template<typename T> class Turtle {
+Student s1{...}, s2{...}, s3{...};
+
+std::cout << Student::getCount() << std::endl;
+```
+
+Now I want to count objects in other classes. How do we abstract the solution into reusable code.
+
+```C++
+template<typename T> struct Count {
+    static int count;
+    Count() { ++count; }
+    Count(const Count&) { ++count; }
+    Count(Count&&) { ++count; }
+    ~Count() { --count; }
+    static int getCount() { return count; }
+};
+
+template<typename T> int Count<T>::count = 0;
+```
+
+```C++
+class Student: Count<Student> {
+        int assns, mt, final;
     public:
-        void draw() {
-            drawHead();
-            static_cast<T *>(this)->drawShell();
-            drawFeet();
-        }
-    private:
-        void drawHead();
-        void drawFeet();
-};
-
-class RedTurtle: public Turtle<RedTurtle> {
-    friend class Turtle;
-    void drawShell();
-};
-
-class GreenTurtle: public Turtle<GreenTurtle> {
-    friend class Turtle;
-    void drawShell();
-};
+        Student(...): ...
+        // accessors
+        using Count<Student>::getCount; // Make this function visible 
+}
 ```
 
-No virtual method methods, no vtable lookup
-- Drawback: no relationship between `RedTurtle` & `GreenTurtle`
-    - Can't store a mix of them in a container
+**Private Inheritance**
+  - inherits `Count`'s implementation without creating an "is-a" relationship
+  - Members of  `Count` become private in `Student`
 
-Can give `Turtle` a parent:
-
+Now we can easily add it to other classes:
 ```C++
-template<typename T> class Turtle: public Enemy { ... };
-```
-
-Then can store `RedTurtles` and `GreenTurtles`
-- But then can't access the `draw` method
-- Could give Enemy a virtual `draw` method
-
-```C++
-class Enemy {
+class Book : Count<Book> {
+    // ...
     public:
-        virtual void draw() = 0;
+        using Count<Book>::getCount;
 };
 ```
 
-But then there will be a vtable lookup
-- On the other hand, if `Turtle::draw` calls several would-be virtual helpers, could trade away several vtable lookups for one
+Why is `Count` a template?
+- So that for each class `C`, `class C : Count<C>` creates a new unique, instantiation of `Count` for each `C`. This gives `C` its own counter vs. sharing one counter over all subclasses
+
+This technique (inheriting from a template specialized by yourself)
+- Looks weird, but happens enough to have its own name: **The Curiously Recurring Template Pattern (CRTP)**
 
 ---
-[<< Collecting Stats](./problem_26.md) | [**Home**](../README.md) | [>> Polymorphic Cloning](./problem_28.md)
+[I want to print the unprintable! <<](./problem_28.md) | [**Home**](../README.md) | [>> Resolving Method Overrides at Compile-Time](./problem_30.md)
