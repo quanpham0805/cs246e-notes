@@ -30,7 +30,8 @@ reading sections are referenced to this book.
 1. [F2021 updated] [I want a class with no objects](Notes/problem_21.md)
 1. [F2021 updated] [The copier is broken (again)](Notes/problem_22.md)
 1. [F2021 updated] [I want to know what kind of Book I have](Notes/problem_23.md)
-   <br/> [F2021 updated] [A Big Unit on Object Oriented Design](Notes/object_oriented_design.md)
+   
+   [F2021 updated] [A Big Unit on Object Oriented Design](Notes/object_oriented_design.md)
 1. [F2021 updated] [Shared Ownership](Notes/problem_24.md)
 1. [F2021 updated] [Abstraction over Iterators](Notes/problem_25.md)
 1. [F2021 updated] [Generalize the Visitor pattern](Notes/problem_26.md)
