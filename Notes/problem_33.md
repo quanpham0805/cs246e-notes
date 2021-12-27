@@ -1,165 +1,93 @@
-[<< Logging](./problem_29.md) | [**Home**](../README.md) | [>> I want total control over vectors and lists](./problem_31.md) 
+[Logging <<](./problem_32.md) | [**Home**](../README.md) | [>> Policies](./problem_34.md) 
+# Problem 33: Generalize the Visitor Pattern! Part 2!
+## **2021-11-25**
 
-# Problem 30: Total Control
-**2017-11-28**
+Recall - we generalized visitor to automatically create the `Visitor` superclass.
 
-Can control:
-- Parameter passing
-- Initialization
-- Method call resolution
-- Etc.
+Now - use CRTP to add `accept` methods to the `Book` hierarchy.
 
-Control over memory allocation:
+```cpp
+class AbstractBook {
+public: 
+    // ...
+    virtual void accept (BookVisitor& bv) = 0;
+    virtual ~AbstractBook() = default;
+};
 
-Memory allocators are tricky to write, so we have 2 questions:
-- **Why write an allocator?**
-    - Built-in one is too slow
-    - General purpose, not optimized for specific use
-        - Ex. If you know you will always allocate objects of the same size, a custom allocator may perform better
-        - Ex. Optimize locaility
-            - Maybe you want a separate heap, just for objects of some class `C`, keeps the objects close to each other. May improve performance.
-        - Ex. You want to use "special memory"
-            - Put objects in shared memory
-        - Ex. You want to profile your program
-            - Collect stats
-- **How do you customize an allocation?**
-    - Overload `operator new`
-    - If you define a global non-member `operator new`, all allocations in your program will use your allocator
-    - Also if you write `operator new`, you need to write `operator delete`. Else undefined behaviour
-    - Ex.
-    ```C++
-    void *operator new(size_t size) {
-        std::cout << "Request for " << size << "bytes\n";
-        return malloc(size);
+template <typename C> class BookAcceptor : public AbstractBook {
+public:
+    void accept(BookVisitor& bv) override {
+        bv.visit(*static_cast<C*>(this));
     }
-    ```
-    ```C++
-    void operator delete(void *p) {
-        std::cout << "Freeing " << p << std::endl;
-        free(p);
-    }
-    ```
-    ```C++
-    int main() {
-        int *x = new int;
-        delete x;
-    }
-    ```
-    - Works but is not correct. Doesn't adhere to convention
-        - If `operator new` fails, it is supposed to throw `bad_alloc`
-        - But actually if `operator new` fails, it is supposed to call the `new_handler` function
-            - The `new_handler` can:
-                - Free up space (somehow)
-                - Install a different `new_handler`/uninstall the current
-                - Throw `bad_alloc`
-                - Abort/exit
-            - `new_handler` should be called in an infinite loop
-            - If `new_handler` is a `nullptr`, `operator_new` throws
-            - Also `new` must return a valid pointer if `size == 0` and `delete` of a `nullptr` must be safe
-    - Correct implementation:
-    ```C++
-    #include <new>
-    void *operator new(size_t size) {
-        std::cout << " " << 
-        if (size == 0) size = 1;
-        while (true) {
-            void *p = malloc(size);
-            if (p) return p;
-            std::new_handler h = std::set_new_handler();
-            std::set_new_handler(h);
-            if (h) h();
-            else throw std::bad_alloc{};
-        }
-    }
-    void operator delete(void *p) {
-        if (p == nullptr) return;
-        std::cout << "Deleting" << p << std::endl;
-        free(p);
-    }
-    ```
-    - Replacing global `operator new`/`delete` affects your entire program
-    - More likely - replace on a class-by-class basis
-        - Especially if you are writing allocators specifically tuned to the sizes of your objects
-    - To do this - make `operator new`/`delete` members
-        - Must be `static` members
-    ```C++
-    class C {
-        public:
-            static void *operator new(size_t size) {
-                std::cout << "Running class C's allocator" << std::endl;
-                return operator new(size);
-            }
-            static void operator delete(void *p) noexcept {
-                std::cout << "Freeing " << p << std::endl;
-                ::operator delete(p);   // :: refers to global namespace
-            }
-    };
-    ```
-    - Generalize - log to an arbitrary stream
-    ```C++
-    class C {
-        public:
-            static void *operator new(size_t size, std::ostream &out) {
-                out << "Running class C's allocator" << std::endl;
-                return operator new(size);
-            }
-    };
-    ```
-    ```C++
-    C *x = new(std::cout) C;  // log to cout
-    ofstream f{...}
-    C *y = new(f) C;
-    ```
-    - Note when you create a `new` that takes in parameters, it is called **placement new**, not to be confused with the other **placement new** where you intialize an object into already allocated memory
-    - Must also write the corresponding "placement" `delete`.
-    ```C++
-    class C {
-        public:
-            ...
-            static void operator delete(void *p, std::ostream &out) noexcept {
-                out << "Placement delete: " << p << std::endl;
-                ::operator delete(p);   
-            }
-    };
-    ```
-    - Won't compile! You also need "ordinary" delete
-    ```C++
-    class C {
-        public:
-            ...
-            static void operator delete(void *p) noexcept {
-                std::cout << "Ordinary delete (cout): " << p << std::endl;
-                ::operator delete(p);   
-            }
-    };
-    ```
-    ```C++
-    C *p = new(cout) C; // Running C's allocator
-    delete p;   // Ordinary delete (cout)
-    ```
-    - If the client calls `delete p`, there needs to be a non-specialized `operator delete`, else compile-error
-    - How can you call sepcialized delete? You can't
-    - Then why do we need it?
-    - If the constructor the called specialized `operator new` throws, it will call the specialized `operator delete` that matches `operator new`
-        - If there isn't one, no `delete` gets called => leak
-    - Ex.
-    ```C++
-    class C {
-        ...
-        public:
-            C(bool b) { if (b) throw 0; }
-    };
-    ```
-    ```C++
-    try {
-        C *p = new(std::cout) C{true};  // throws, calls specialized delete
-        delete p; // Not reached
-    } catch(...) {}
-    C *q = new(std::cout) C{false}  // Does not throw
-    delete q;   // Ordinary operator delete
-    ```
+};
 
-Customizing array allocation - overload `operator new[]` and `operator delete[]`.
+class Text : public BookAcceptor<Text> {/* ... */};
+// etc
+```
+- This acceptor is depending on the `Book` hierarchy (unnecessary coupling, still lots of boilerplate code)
+- `BookAcceptor` inherits from `AbstractBook` and accept a `BookVisitor`
+- If I want to make another acceptor for another visitor, I have to write all this again
+
+Let's abstract these:
+```cpp
+template <typename B, typename C, typename V> 
+class Acceptor : public B { // mixin class
+public:
+    void accept(V& v) override { v.visit(*static_cast<C*>(this)); }
+};
+
+class Text : public Acceptor<AbstractBook, Text, BookVisitor> {
+    // ...
+};
+```
+- Now I don't need to write all those boilerplate code again, I can put this in a library and it would work on its own.
+
+So far, these things work because they don't have any field, but what if the abstract superclass has fields?
+```cpp
+class AbstractBook {
+    string title, author;
+    int length;
+public:
+    AbstractBook(string title, string author, int length);
+    virtual void accept(BookVisitor& bv) = 0;
+    virtual ~AbstractBook() = default;
+};
+
+template <typename B, typename C, typename V>
+class Acceptor : public B {
+    // same as above
+};
+
+class Text : public Acceptor<AbstractBook, Text, BookVisitor> {
+    string topic;
+    // ...
+};
+```
+- `AbstractBook` has fields, and so it has a non-trivial constructor, which must be called to initialize the `Text` object.
+- `Text` cannot call `AbstractBook`'s ctor because it is not the direct parent of `Text`. 
+- `Text` can only call `Acceptor`'s ctor
+- `Acceptor` cannot call `AbstractBook`'s ctor because it doesn't know what its parent is!
+    - Well, parent is `B`, but `B` could be anything.
+    - The intermediate class in this case is too generic so it cannot call the parent's ctor.
+- Good news! There is a one liner solution to this!
+```cpp
+template <typename B, typename C, typename V>
+class Acceptor : public B {
+public:
+    using B::B; // here is this one line
+    void accept(V& v) override { v.visit(*static_cast<C*>(this)); }
+};
+```
+- The `using` line doesn't _just_ bring back the ctor into scope like what we used before (that wouldn't make sense anyway).
+- It brings all of the `B`'s ctors into scope within `Acceptor`, rename them into `Acceptor`, and simply passing through `B`'s actual ctors.
+- Now I can do
+```cpp
+Text::Text(string title, string author, int length, string topic) :
+    Acceptor{title, author, length}, topic{topic} {}
+```
+
+Exercise: apply this to the cloning problem.
+
 
 ---
-[<< Logging](./problem_29.md) | [**Home**](../README.md) | [>> I want total control over vectors and lists](./problem_31.md) 
+[Logging <<](./problem_32.md) | [**Home**](../README.md) | [>> Policies](./problem_34.md) 

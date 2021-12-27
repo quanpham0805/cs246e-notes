@@ -39,12 +39,14 @@ reading sections are referenced to this book.
 1. [F2021 updated] [I want to print the unprintable!](Notes/problem_28.md)
 1. [F2021 updated] [Collecting Stats](Notes/problem_29.md)
 1. [F2021 updated] [Resolving Method Overrides at Compile Time](Notes/problem_30.md)
-1. [Polymorphic Cloning](Notes/problem_31.md)
-1. [Logging](Notes/problem_32.md)
-1. [Total Control](Notes/problem_33.md)
-1. [I want total control over vectors and lists](Notes/problem_34.md)
-1. [A fixed-size allocator](Notes/problem_35.md)
-1. [I want a (tiny bit) smaller vector class](Notes/problem_36.md)
+1. [F2021 updated] [Polymorphic Cloning](Notes/problem_31.md)
+1. [F2021 updated] [Logging](Notes/problem_32.md)
+1. [F2021 updated] [Generalize the Visitor Pattern! Part 2!](Notes/problem_33.md)
+1. [F2021 updated] [Policies](Notes/problem_34.md)
+1. [Total Control](Notes/problem_35.md)
+1. [I want total control over vectors and lists](Notes/problem_36.md)
+1. [A fixed-size allocator](Notes/problem_37.md)
+1. [I want a (tiny bit) smaller vector class](Notes/problem_38.md)
 
 ## 2021 Tutorials (pdf notes in odd numbers):
 1. [Shell](Notes/tutorial01.pdf)
@@ -210,7 +212,7 @@ Work in progress (feel free to contribute)!
     - [2](Notes/problem_2.md)
 - SFINAE (Substitution Failure Is Not An Error)
     - [27](Notes/problem_27.md)
-- Single Responsiblity Principle
+- Single Responsibility Principle
     - [A Big Unit on OO Design](Notes/object_oriented_design.md)
 - SOLID Principles of OO Design
     - [A Big Unit on OO Design](Notes/object_oriented_design.md)
@@ -288,4 +290,6 @@ Also Install xwindows server, eg. Xming, XQuartz
 ## Todo:
 - [ ] Introduced new `problem_2` and as a result, we need to move all the old files except p1 + 1. Need to update those as we go (header and footer for each file).
 - [ ] Introduced new `problem_26` and as a result, we need to move all the old files from old 26 onwards + 1. Need to update those as we go (header and footer for each file).
-- [ ] - [ ] Introduced new `problem_28` and as a result, we need to move all the old files from old 28 onwards + 1. Need to update those as we go (header and footer for each file).
+- [ ] Introduced new `problem_28` and as a result, we need to move all the old files from old 28 onwards + 1. Need to update those as we go (header and footer for each file).
+- [ ] Introduced new `problem_33` and as a result, we need to move all the old files from old 33 onwards + 1. Need to update those as we go (header and footer for each file).
+- [ ] Introduced new `problem_34` and as a result, we need to move all the old files from old 34 onwards + 1. Need to update those as we go (header and footer for each file).
