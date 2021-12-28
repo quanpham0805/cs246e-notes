@@ -5,44 +5,44 @@ _Course information at the bottom of the page._
 These notes cover CS 246E in Fall 2021. The textbook used is [Stroustrup, Bjarne. The C++ Programming Language, 4th edition, Addison Wesley](http://www.stroustrup.com/4th.html),
 reading sections are referenced to this book. 
 
-## Table of Contents
+## Table of Contents (all F2021 updated)
 
-1. [F2021 updated] [Program Input / Output](Notes/problem_1.md)
-1. [F2021 updated] [Separate compilation](Notes/problem_2.md)
-1. [F2021 updated] [Linear Collections and Modularity](Notes/problem_3.md)
-1. [F2021 updated] [Linear Collections and Memory Management](Notes/problem_4.md)
-1. [F2021 updated] [The Copier is broken!](Notes/problem_5.md)
-1. [F2021 updated] [Moves](Notes/problem_6.md)
-1. [F2021 updated] [I want a constant vector](Notes/problem_7.md)
-1. [F2021 updated] [Tampering](Notes/problem_8.md)
-1. [F2021 updated] [Efficient Iteration](Notes/problem_9.md) 
-1. [F2021 updated] [Staying in bounds](Notes/problem_10.md)
-1. [F2021 updated] [I want a vector of chars](Notes/problem_11.md)
-1. [F2021 updated] [Better Initialization](Notes/problem_12.md)
-1. [F2021 updated] [I want a vector of Posns](Notes/problem_13.md)
-1. [F2021 updated] [Less Copying!](Notes/problem_14.md)
-1. [F2021 updated] [Memory management is hard!](Notes/problem_15.md)
-1. [F2021 updated] [Is vector exception safe?](Notes/problem_16.md)
-1. [F2021 updated] [Insert/remove in the middle](Notes/problem_17.md)
-1. [F2021 updated] [Abstraction over containers](Notes/problem_18.md)
-1. [F2021 updated] [Heterogeneous Data](Notes/problem_19.md)
-1. [F2021 updated] [I'm leaking!](Notes/problem_20.md)
-1. [F2021 updated] [I want a class with no objects](Notes/problem_21.md)
-1. [F2021 updated] [The copier is broken (again)](Notes/problem_22.md)
-1. [F2021 updated] [I want to know what kind of Book I have](Notes/problem_23.md)
+1. [Program Input / Output](Notes/problem_1.md)
+1. [Separate compilation](Notes/problem_2.md)
+1. [Linear Collections and Modularity](Notes/problem_3.md)
+1. [Linear Collections and Memory Management](Notes/problem_4.md)
+1. [The Copier is broken!](Notes/problem_5.md)
+1. [Moves](Notes/problem_6.md)
+1. [I want a constant vector](Notes/problem_7.md)
+1. [Tampering](Notes/problem_8.md)
+1. [Efficient Iteration](Notes/problem_9.md) 
+1. [Staying in bounds](Notes/problem_10.md)
+1. [I want a vector of chars](Notes/problem_11.md)
+1. [Better Initialization](Notes/problem_12.md)
+1. [I want a vector of Posns](Notes/problem_13.md)
+1. [Less Copying!](Notes/problem_14.md)
+1. [Memory management is hard!](Notes/problem_15.md)
+1. [Is vector exception safe?](Notes/problem_16.md)
+1. [Insert/remove in the middle](Notes/problem_17.md)
+1. [Abstraction over containers](Notes/problem_18.md)
+1. [Heterogeneous Data](Notes/problem_19.md)
+1. [I'm leaking!](Notes/problem_20.md)
+1. [I want a class with no objects](Notes/problem_21.md)
+1. [The copier is broken (again)](Notes/problem_22.md)
+1. [I want to know what kind of Book I have](Notes/problem_23.md)
    
-   [F2021 updated] [A Big Unit on Object Oriented Design](Notes/object_oriented_design.md)
-1. [F2021 updated] [Shared Ownership](Notes/problem_24.md)
-1. [F2021 updated] [Abstraction over Iterators](Notes/problem_25.md)
-1. [F2021 updated] [Generalize the Visitor pattern](Notes/problem_26.md)
-1. [F2021 updated] [I want an ever faster vector](Notes/problem_27.md)
-1. [F2021 updated] [I want to print the unprintable!](Notes/problem_28.md)
-1. [F2021 updated] [Collecting Stats](Notes/problem_29.md)
-1. [F2021 updated] [Resolving Method Overrides at Compile Time](Notes/problem_30.md)
-1. [F2021 updated] [Polymorphic Cloning](Notes/problem_31.md)
-1. [F2021 updated] [Logging](Notes/problem_32.md)
-1. [F2021 updated] [Generalize the Visitor Pattern! Part 2!](Notes/problem_33.md)
-1. [F2021 updated] [Policies](Notes/problem_34.md)
+   [A Big Unit on Object Oriented Design](Notes/object_oriented_design.md)
+1. [Shared Ownership](Notes/problem_24.md)
+1. [Abstraction over Iterators](Notes/problem_25.md)
+1. [Generalize the Visitor pattern](Notes/problem_26.md)
+1. [I want an ever faster vector](Notes/problem_27.md)
+1. [I want to print the unprintable!](Notes/problem_28.md)
+1. [Collecting Stats](Notes/problem_29.md)
+1. [Resolving Method Overrides at Compile Time](Notes/problem_30.md)
+1. [Polymorphic Cloning](Notes/problem_31.md)
+1. [Logging](Notes/problem_32.md)
+1. [Generalize the Visitor Pattern! Part 2!](Notes/problem_33.md)
+1. [Policies](Notes/problem_34.md)
 1. [Total Control](Notes/problem_35.md)
 1. [I want total control over vectors and lists](Notes/problem_36.md)
 1. [A fixed-size allocator](Notes/problem_37.md)
@@ -60,16 +60,18 @@ reading sections are referenced to this book.
 1. [Recursive Descent](Notes/tutorial_7.md)
 
 ## Discussions
-1. [Modules](Notes/discussion_1.md)
-1. [More modules](Notes/discussion_2.md)
-1. [Tiny optimizations](Notes/discussion_3.md)
-1. [Continuation of discussion on spaceship](Notes/discussion_4.md)
-1. [Continuation of structured Bindings (C++17)](Notes/discussion_5.md)
+1. [Modules (C++20)](Notes/discussion_1.md)
+1. [If / Switch Initialization (C++17)](Notes/discussion_2.md)
+1. [The Spaceship Operator (C++20)](Notes/discussion_3.md)
+1. [Structure Bindings (C++17)](Notes/discussion_4.md)
+1. [Class Template Argument Deduction (C++17)](Notes/discussion_5.md)
 1. [Range Abstraction (C++20)](Notes/discussion_6.md)
 1. [Unions Revisited (C++17)](Notes/discussion_7.md)
-1. [void* revisited (C++17)](Notes/discussion_8.md)
-1. [fold expression (C++17)](Notes/discussion_9.md)
-1. [std::variant revisited](Notes/discussion_10.md)
+1. [Revisiting void* (C++17)](Notes/discussion_8.md)
+1. [Ownership of Strings (C++17)](Notes/discussion_9.md)
+1. [fold expression (C++17)](Notes/discussion_10.md)
+1. [std::variant revisited (C++17)](Notes/discussion_11.md)
+1. [Concepts (C++ 20)](Notes/discussion_12.md)
 
 
 ## Index
@@ -285,11 +287,11 @@ Also Install xwindows server, eg. Xming, XQuartz
 - A course on abstraction
 - Demand-driven, problem-oriented presentation, introduce C++ concepts as needed
 - Linux tools on the side/tutorials
-- C++17, C++20 features during discussion sessions.
+- C++17, C++20 features during discussion sessions
+- Lots of template metaprogramming
 
-## Todo:
-- [ ] Introduced new `problem_2` and as a result, we need to move all the old files except p1 + 1. Need to update those as we go (header and footer for each file).
-- [ ] Introduced new `problem_26` and as a result, we need to move all the old files from old 26 onwards + 1. Need to update those as we go (header and footer for each file).
-- [ ] Introduced new `problem_28` and as a result, we need to move all the old files from old 28 onwards + 1. Need to update those as we go (header and footer for each file).
-- [ ] Introduced new `problem_33` and as a result, we need to move all the old files from old 33 onwards + 1. Need to update those as we go (header and footer for each file).
-- [ ] Introduced new `problem_34` and as a result, we need to move all the old files from old 34 onwards + 1. Need to update those as we go (header and footer for each file).
+## New problems:
+- Separated [problem 2](Notes/problem_2.md) out from first problem.
+- Added generalized versions of the Visitor Pattern with lots of template metaprogramming recursion magik in [problem 26](Notes/problem_26.md) and [33](Notes/problem_33.md)
+- Added printing the unprintable in [problem 28](Notes/problem_28.md), inspired by a former student
+- Added Policies in [problem 34](Notes/problem_34.md)

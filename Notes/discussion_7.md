@@ -1,89 +1,83 @@
+# Discussion 7: Unions Revisited (C++17)
 
-# Unions Revisited (C++17)
+Recall the use of dynamic_cast to query the run_time type of an object in a class hierarchy.
+- and we said it was usually bad style.
+- Why?
+    - what if we want to add more classes to the hierarchy?
+    - we need to rewrite a bunch of stuff.
+- instead, we should write virtual methods (or visitors)
 
-Recall the use `dynamic_cast` to query the run-time type of an object in a
-class hierarchy - we said that it was bad style. The reason is that existing
-code may no longer work after adding additional classes to the hierarchy. So in
-this case, a virtual method would be preferred over `dynamic_cast`.
+Subtype polymorphism is about having a uniform approach to all possible types in the class.
+- so that we never need to rewrite anything.
+- but, all of this is predicated on one assumption: that we might need to make more classes.
+    - but what if we know for sure that we won't need to?
+    - maybe an `A` object can *only* be either a `B` or a `C` object,
+        - and maybe this will not change?
+        - or if it does, it will have enough of an impact that widespread rewriting is truly unavoidable?
 
-'Subtype polymorphism' is about having the same approach to all possible types
-in the class hierarchy, so that the client code doesn't need to care about the
-actual type.
+Here's an example:
+- suppose we are writing a C compiler.
+- and we have a class for loops.
+    - there are only 3 kinds of loops: for, while and do.
+    - and this has not changed for decades.
+    - in this case, it is really so bad to have specialized code for `for`, `while`, `do`, and to start by asking what kind of loop we have?
+    - also, doing everything by virtual methods forces you to impose a uniform interface on classes that might not be similar.
+    - this makes sense if the possible subclasses are theoretically unbounded, but not here.
+    - here, it makes sense to give each class its own specialized interface.
 
-This entire argument is predicated on one assumption - that you might need to
-create more classes. What if you know FOR SURE that you won't?
+So maybe unions aren't so bad?
+- well, yes, they are`
+- since unions are not type-safe, and invite abuse.
 
-Example:
+But, in C++17, we are offered a type-safe alternative to unions: `std::variant`.
+- we get this by `#include <variant>`.
 
-Suppose you are writing a c compiler and you have a class for loops. There are
-only 3 types of loops: for, while and do - and that hasn't changed for decades.
-
-The for loop is different that while and do, in that it has an update
-condition. Should we force a uniform interface and give while and do a
-`getUpdate` that returns empty, or should we just use dynamic cast and take
-advantage of the specialization?
-
-Our problem of storing heterogeneous data hasn't completely been solved,
-imagine we would want to store a collection of students and comic books, does
-it really make sense to make an artificial super class of students and comic
-books?
-
-So let's revisit unions. C++17 offers a type-safe alternative to unions:
-`std::variant`.
-
+How might we use this?
 ```cpp
-#include <variant>
+variant<For, Do, While> loop;
+// or
+using Loop = variant<For, Do, While>;
+Loop loop;
+```
 
-// storing items in variant
-variant<For, Do, While> loop{For{}};
+Storing items in the variant:
+```cpp
+variant<For, While, Do> loop {For {}};
+```
 
-// discriminating the value
+Discriminating the value:
+```cpp
 if (holds_alternative<For>(loop)) {
-    cout << "for loop";
-} else {
-    ...
+    cout << "for loop" << endl;
 }
+else {...}
+```
 
-// extracting the value
+Extracting the value:
+```cpp
 try {
     For f = get<For>(loop);
-    ...
-} catch(bad_variant_access& err) {
-    // it was not a for
-    ...
+    // use f...
+}
+catch (bad_variant_access&) {
+    // handle error
 }
 ```
+- note that storing one type in a variant and attempting to fetch it as another type will throw!
 
-When a variant if first defined, if no initializer is given, it is set to the
-first type in the list.
+When a variant is frst defined, if no initializer is given, it is set to the first type in the list.
 ```cpp
-variant<For, Do, While> v; // default initialized to For{}
+variant<For, Do, While> v; // set to For {};
 ```
-What happens if the first type wasn't default constructable.
-- don't default initialize the variant
-- reorder the types so the first one has a default constructor
-- use std::monostate as the first type - just a dummy type
+- this type is default initialized.
 
-Note: `variant<monostate, T>` is like a maybe type in haskell
+But what if the first type doesn't have a default constructor?
+- then, the program will not compile.
 
-What if we had:
-```cpp
-variant<int, int> v;
-cout << get<int>(v);
-```
-this does not compile, we do not know which int to get
-
-To get around this:
-```cpp
-variant<int, int> v;
-cout << get<0>(v);
-```
-and attempting to use `get<1>(v)`, will result in a `bad_variant_access`, this
-is good, cpp is keeping track of which int we stored.
-
-And now, if we wanted to set the second int:
-```cpp
-variant<int, int> v{in_place_index<1>, 4};
-cout << get<1>(v);
-```
+So what do we do about this?
+1. We could reorder the types so that the first one has a default constructor;
+2. Use `std::monostate` as the first type.
+    - this is a dummy type that can be used as a default.
+    - note: `variant<monostate, T>` gives us a way to mimic `Maybe T` (like in Haskell).
+    - we also have `std::optional<T>`, which does the exact same thing.
 

@@ -1,121 +1,102 @@
+# Discussion 5: Class Template Argument Deduction (C++17)
 
-# Continuation of structured Bindings (C++17)
-
-Recall from last day that structured bindings do not work when there are
-private fields, we need to provide our own.
-```
-class Posn {
-    int x, y;
-public:
-    Posn(int x, int y): x{x}, y{y} {}
-    template <size_t n> auto& get() {
-        return (n == 0) ? x : y;
-    }
-}
-```
-
-We ask the question, does `x` and `y` need to be of the same type? No. Notice
-that `n` is known at compile time, so get<0> and get<1> will be two different
-functions. We deal with the return type by using the auto return type.
-
-** the above will not type check for other reasons, we will visit it later
-
-Continuing on:
-```
-namespace std {
-    template<> struct tuple_size<Posn> {
-        static const int value = 2;
-    }
-    template<> struct tuple_element<0, Posn> {
-        using type = int;        
-    }
-    template<> struct tuple_element<1, Posn> {
-        using type = int;        
-    }
-}
-```
-
-Now we can finally do this:
-```
-Posn p{1, 2};
-auto& [a, b] = p;
-```
-
-Notice that this worked with Posn's private `x` and `y` fields.
-
-## Class template argument deduction (C++17)
-
-Recall that we can do:
-```
+Recall:
+```cpp
 int x = 1, y = 2;
-std::swap(x, y);
+std::swap(x,y);
 ```
+- we don't need to say `swap<int>(x, y)` (we can, but we don't need to.)
+- the `int` is inferred from the types of `x` and `y`.
 
-where we did not need to saw `swap<int>(x, y)`, since the int is inferred from
-the types of the arguments passed in. However, this is not possible with
-template classes... until now.
-
-Let's take a look at pair:
+```cpp
+template <typename T> void swap(T &x, T &y);
 ```
+- so for `swap(1,2)`, `T&x` and `T&y` are `ints`, so it is inferred that `T` is `int`.
+- however, we could not do this for template classes.
+
+```cpp
 template <typename T, typename U> struct pair {
     T first;
     U second;
 };
 ```
 
-and when we construct it:
-```
-pair<int, char> p{1, 'a'};
-```
-
-this can start to get pretty tedious to type, so here's the standard
-workaround. The idea is if the class can't do argument deduction, we can make
-a function do it.
-```
-template<typename T, typename U>
-pair<T, U> make_pair(T x, U y) {
-    return pair<T, U>{x ,y};
+- we cannot do this in C++14: `pair p {1, 'a'};`
+    - because 1 is int, and 'a' is char
+    - we would need to say `pair<int, char> p {1, 'a'};`
+- or as an rvalue: `f(pair<int, char> {1, 'a'});`
+- the standard workaround for this are the `make_` helper functions:
+```cpp
+template <typename T, typename U>
+pair<T, U> make_pair(T x, T y) {
+    return pair<T, U> {x, y};
 }
 ```
-
-and now we can do:
-```
+Now, we can do this:
+```cpp
 auto p = make_pair(1, 'a');
 ```
-
-in this case, `make_pair` is a pass through function, so it should be doing
-perfect forwarding.
-```
-template<typename T, typename U>
-pair<T, U> make_pair(T&& x, U&& y) {
-    return pair<T, U>{std::forward<T>(x), std::forward<y>(y)};
+- since `1` is `int`, and `'a'` and `char`, it is deduced that `p` is `pair<int, char>`.
+- though, to do this right, `make_pair` is a passthrough function, 
+    - and anytime we have a pass-through function, we should be doing **perfect forwarding**.
+- for instance:
+```cpp
+template <typename T, typename U> pair<T, U> make_pair(T &&x, U &&y) {
+    return pair<T, U> {
+        std::forward<T>(x), 
+        std::forward<U>(y)
+    };
 }
 ```
 
-this, as you can see, is a lot of work. In C++17, we finally have template
-argument deduction for classes. So we can simply say:
+However, in C++17, template argument deduction for classes is enabled, so we can now write stuff like this:
+```cpp
+pair p{1, 'a'}; // p is of type pair<int, char>.
+// we can also write is as an rvalue:
+auto g = pair{2, 'b'};
 ```
-pair p{1, 'a'};
-```
+How does this work?
+- the compiler performs *template argument deduction* on the constructors of the class.
+- if there is a matching constructor, and it is enough to deduce all of the template arguments, it succeeds.
+- or the remaining template parameters have defaults.
 
-and pair is automatically given type `pair<int, char>`. How does this work? C++
-now performs template argument deduction on the constructor of the class.
+For instance:
+```cpp
+template <typename T, typename U> struct pair {
+    T first;
+    U second;
+    pair(T a, U b) : first{a}, second{b} {}
+};
 
-Now let  us ask, when will this not work?
+auto q = pair{2, 'b'};
+// compiler attempts to match {2, 'b'} against the constructors' arguments.
+// so it matches against the first constructor, so first argument T = int, and second argument U = char
+// this covers all the template parameters
+// so type of q is "implied" to be pair<int, char> (we're good!)
+
 ```
-template<typename T> class C { T x; }
+- Note that the deduction also works in the case where the constructor is omitted (so we just use the default C-style initialization).
+
+When might the deduction fail?
+- it might fail if there is not a "clear relationship" between the template arguments and the constructor arguments.
+- for instance, say we have something like this:
+```cpp
+template <typename T> class C {
+    T x;
+};
+
 C{"abc"};
 ```
-and T is deduced as const char*. However, you may have hoped for it to be
-std::string instead. You can help the compiler out by providing a 'deduction
-guide':
+- T will be implied to be `const char *`, not `string`.
+- if we wanted the type to be `string`, we could help the compiler by providing a **deduction guide**
+- which works by saying that whenever we have a `C<const char *>`, we deduce that `C<string>`.
+- ie 
+```cpp
+C(const char *) -> C<string>`.
 ```
-template<typename T> C(const char*) -> C<string>;
-class C { T x; }
+- or, maybe store a `unique_ptr` when we have a raw pointer:
+- ie
+```cpp
+template <typename T> C(T*) -> C<unique_ptr<T>>;
 ```
-
-We can also template our deduction guide:
-```
-template<typename T> C(T*) -> C<unique_ptr<T>>;
-```
-
+- note that the above only works if `unique_ptr`'s constructor is non-explicit.

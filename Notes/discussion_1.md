@@ -1,7 +1,5 @@
 
-# Discussion 1
-
-## Modules
+# Discussion 1: Modules
 
 **Goal**: get rid of `#include`
 
@@ -57,13 +55,13 @@ g++-11 -std=c++20 -fmodules-ts
 Can we separate interface from implementation?
 
 In `mymod.cc`:
-```
+```cpp
 export module m;
 export int f(int, int);
 ```
 
 In `mymod-impl.cc`:
-```
+```cpp
 module m;
 int g(int x) { return x * x; }
 int f(int x, iny u) { return g(x)+g(y); }
@@ -76,36 +74,65 @@ exported.
 
 Can we build bigger modules out of smaller ones?
 
-``` yourmodule.cc
+_`yourmodule.cc`_
+```cpp 
 export module n;
 export const char* yourString();
 ```
-
-``` yourmodule-impl.cc
+_`yourmodule-impl.cc`_
+``` cpp
 module n;
 const char* yourString() { return "world\n"; }
 ```
 
-``` mymod.cc
+_`mymod.cc`_
+```cpp
 export module m;
 export import n;
 
 export const char* mysString();
 ```
 
-``` mymod-impl.cc
+_`mymod-impl.cc`_
+```cpp
 module n;
 const char* myString() { return "Hello "; }
 ```
 
-``` main.cc
+_`main.cc`_
+```cpp
 #include <iostream>
 import m;
 
-int
-main()
+int main()
 {
     std::cout << myString() << yourString();
 }
 ```
 
+module != header because its not the cpp preprocessor
+it does not "drop" the code directly on top of your program, but rather "importing" the lib as module
+
+Important difference: any preprocessor directives in an imported header affect the header ONLY. It do not propagate the change to the file include it anymore.
+(as they would with #include)
+
+-> pre-compiled module files have not been built for the STL lib header, so import would fail.
+
+This would significantly improve compile time, as module are already pre-compiled
+
+compare with namespaces:
+- they serve a different purpose
+- better structure
+- namespace is used to prevent name-collision
+- elements of module are not prefixed by the module name, unlike namespaces
+- namespaces are open, anyone can add more to the namespace, with the only exception is the std:
+
+We can also combine namespace using module. Import the two, then place them under the same namespace.:
+
+still to be worked out: relationship between cpp and make.i
+- major handle: forced order of compilation.
+- Traditional cpp we can compile in any order then link them together.
+- Now, modules need to be compile first, and some before some other (imagine this being a tree, we need to compile from the root)
+- Also cannot discover dependencies by compiling in isolatoin, since modules are placed into gcm.cache/....
+  - As a result, we cannot use the compiler to spit out the dependencies
+  - Well if you already know your dependencies, you can then use cmake, but well, what's the point that time then XD

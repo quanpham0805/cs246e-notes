@@ -1,59 +1,107 @@
-# Discussion 9: fold expression (C++17)
+# Discussion 9: Ownership of Strings (C++17)
 
-## 2021/11/17
+We know that a string owns its characters.
+- hence, any copy of a string (ie copy construction, pass by value etc) is a deep copy.
+- deep copies mean that changes to a string will not be replicated in the copies.
+- but if we don't need to change the string?
 
-Recall: variadic templates
-- We used them a few times already, for example, `emplace_back`, `make_unique`
-- They built the objects, then copy to the container so that we don't need to actually construct the object
-- Also used these to make functions that took an arbitrary number of arguments 
-- Example: variadic sum: `sum(1, 2, 3, 4, 5) = 15`. 
+But what if we don't need our own copy? We have several options: 
 
-```C++
-template <typename... Args> auto sum (Args... args) {
-    return 0;
-} 
+1. Call `s.data()`;
+    - use the underlying char array
+2. Use a reference to the string `s`.
 
-// only trigger when list is not empty
-// and only when we can define the first element
-template <typename First, typename... Rest>
-auto sum (First x, Rest... r) {
-    return x + sum(r...);
-}
+i.e. why are we here? Isn't this a solved problem?
+- just pass the string by reference!
+
+But consider the following:
+```cpp
+void f(const string &s);
+f("hello");
+```
+- here, `"hello"` is a `char*`, and it's sitting in the literal pool right now.
+- so, a new string must be constructed as a temporary, with a new heap array, containing a copy of `"hello"`, so that we have something to refer to.
+- thus, it's a deep copy of an existing `char *` literal, and this is expensive if the string is long.
+
+Aside: the **short string optimization.**
+
+## Short String Optimization (SSO)
+Usually, strings are stored like this:
+```cpp
+class string {
+    char *theString;
+    size_t size, cap;
+};
+```
+But, if the string is short, it could be stored like this:
+```cpp
+class string {
+    size_t size;
+    char theString[MAX];
+};
+```
+So, the general implementation of string is as follows:
+```cpp
+class String {
+    size_t size;
+    union {
+        struct {
+            char *theString;
+            size_t cap;
+        };
+        char theString[sizeof(char *) + sizeof(size_t)];
+    };
+};
 ```
 
-- This is just like Racket, but it doesn't feel "simple", and feels more like a trick rather than something built in, not something the inventor has thought of
-- Most of the things that template offer, people didn't know about it, and it's more powerful than we thought, so they are making it more simple to use in C++17
+(back to main topic)
 
+Or, we could take a `char *` in `f`:
+```cpp
+void f(const char *)
+```
+- but this isn't C.
+- now we don't have access to string methods, and so we have to deal with null terminators, etc.
+- gross.
 
-In <u>C++17</u>, we have `fold` expressions make these functions easier to write
+To solve this, C++17 introduces `std::string_view`.
+- essentially, this is a non-owning string class.
 
-```C++
-template <typename... Args> auto sum (Args... args) {
-	return (args + ... + 0);
-	// or we can just do
-	// return (args + ...);
-	// these are called "fold" expressions
+The implementation is basically using two pointers.
+```cpp
+#include <string_view>
+
+using namespace std;
+
+string s {"Hello world"};
+string_view sv {s};
+```
+The advantage of using `string_view`:
+```cpp
+void f(string_view sv) {
+    ...
 }
 ```
-
-For ref: [CPP Reference fold expression](https://en.cppreference.com/w/cpp/language/fold)
-
-Syntax: General forms of a fold expression:
-- `(... op e) = ((e1 op e2) op e3) ... op en`
-- `(e op ...) = e1 op (e2 op (... ( en-1 op en)))`
-- `(i op ... op e) = ((i op e1) op e2) ... op en)`
-- `(e op ... op e) = e1 op (e2 op (... (en op i)))`
-
-Application: `multi_push_back`
-```C++
-template <typename T, typename... Args>
-void multi_push_back(vector<T> &v, Args... objs) {
-	(v.push_back(objs), ...); // op is the comma operator
-}
-
+- this passes two pointers
+- so there is no deep copying.
+```cpp
+f(s)
 ```
-- This will be compiled to tail recursive functions
+- this also passes two pointers.
+```cpp
+f("hello world")
+```
+- this passes two pointers
+- so there is no temporary string object.
 
+Within `f`, we have the `string_view`. What can we do with it?
+- we do have method calls on `string_view` objects:
+    - `find` - find a substring within the view; 
+    - `remove_prefix(n)` - advance the first pointer by n
+    - `remove_suffix(n)` - back up the second pointer by n
+    - `substr` - produces a view f the range `[m, n)`.
 
-
+Note:
+- `string::substr` produces a new string (so this is expensive); but
+- `string_view:substr` produces a new view (so this is cheap.)
 

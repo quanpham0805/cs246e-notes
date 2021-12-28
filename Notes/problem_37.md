@@ -1,36 +1,32 @@
-[<< I want total control over vectors and lists](./problem_31.md) | [**Home**](../README.md) | [>> I want a (tiny bit) smaller vector class](./problem_33.md) 
+[I want total control over vectors and lists <<](./problem_36.md) | [**Home**](../README.md) | [>> I want a (tiny bit) smaller vector class](./problem_38.md) 
 
 # Problem 32: A fixed-size object allocator
-**2017-11-29**
+## **2021-11-30**
 
-A custom allocator can be fast.
-**Fixed size allocator:** all allocated "chunks" are the same size (ie. customaized code for one class) - no need to keep track of sizes
+A custom allocator can be significantly faster than the standard allocator. Why?
 
-(aside - many many traditional allocators store the size of the block before the pointer so that the allocator knows how much space is allocated to that pointer.)
+**Fixed size allocator:** all allocated "chunks" are the same size (ie. customized code for one class) - no need to keep track of sizes
+- Beside - many traditional allocators would store the size of the block before the pointer so that the allocator knows how much space is allocated to that pointer.
 
 **Fixed size:**
 - Saves space (no hidden size field)
 - Saves time (no hunting for a block of the right size)
 
 **Approach:** create a pool of memory  - an array large enough to hold `n` `T` objects.
+- When a slot in the array is given to the client, it will act as a `T` object
+- When we have it, it will act as a node in a linked list
+- Store an `int` in each slot, each slot stores the index of the next slot in the list
 
-When the client has a slot: `T` object
-
-When we have it: node in a linked list
-
-Each slot stores the index of the next slot in the list
-
+To initialize, it would store the index of the first slot in the list. To demonstrate, initially, we have
 ```
-FIRST
-+---+       +---+---+---+---+-----+----+
-| 0 |       | 1 | 2 | 3 | 4 | ... | -1 |
-+---+       +---+---+---+---+-----+----+
+first_available
+     +---+            +---+---+---+---+-----+----+
+     | 0 |----------->| 1 | 2 | 3 | 4 | ... | -1 |
+     +---+            +---+---+---+---+-----+----+
 
-              0   1   2   3         n-1
+                        0   1   2   3         n-1
 ```
-
 Allocation: from the front
-
 ```
           Allocated
 +---+       +---+---+---+---+-----+----+
@@ -45,9 +41,7 @@ Allocation: from the front
 
               0   1   2   3         n-1
 ```
-
-Deallocation: 
-
+Deallocation:
 ```
 Free item 0
 +---+       +---+---+---+---+-----+----+
@@ -63,9 +57,9 @@ Free item 1
 
               0   1   2   3         n-1
 ```
+- Allocation/deallocation is constant time and very fast
 
 _Implementation:_
-
 ```C++
 template<typename T, int n> class fsAlloc {
     private:
@@ -191,4 +185,4 @@ Also:
     - Derived class can have its own allocator
 
 ---
-[<< I want total control over vectors and lists](./problem_31.md) | [**Home**](../README.md) | [>> I want a (tiny bit) smaller vector class](./problem_33.md) 
+[I want total control over vectors and lists <<](./problem_36.md) | [**Home**](../README.md) | [>> I want a (tiny bit) smaller vector class](./problem_38.md) 

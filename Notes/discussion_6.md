@@ -1,80 +1,110 @@
+# Discussion 6: Range Abstraction (C++20)
 
-# Range Abstraction (C++20)
+Consider the method `vector<T>::erase`:
+- takes an iterator to the item;
+- removes the item;
+- shuffles the following items forward; and
+- returns an iterator to the point of erasure.
 
-Consider the method `vector<T>::erase`, which takes an iterator to the item,
-removes the item, and shuffles the following items forward. Finally, it returns
-an iterator to the point of erasure. This has O(n) for shuffling.
+The cost of `erase` is `O(n)` (for shuffling) - this is fine.
 
-BUT, what if i wanted to erase several consecutive items? Calling erase in a
-loop is inefficient - we are shuffling mutliple times for no reason.
-
-For this reason, most methods comes with a range version:
+But, what if we need to erase consecutive items?
+- we could call `erase` repeatedly;
+    - but this is `O(n*m)`, where m is the number of items we are taking out - this is not good!
+- a faster method is to shuffle the items up `k` positions in one step each, where `k` is the number of items being erased.
+- for this reason, most methods come with a *range* version, which looks something like this:
+```cpp
+iterator vector<T>::erase(iterator first, iterator next)
 ```
-iterator vector<T>::erase(iterator first, iterator last);
-```
-this allows us to pay the linear shuffling cost only once.
+- which erase items in `[first, last)`, and only pays the linear cost once.
+- this already exists in C++14.
 
-Maybe theres potential for abstraction here.
-Consider composing multiple methods on some input, for example, filter +
-transform (take all odd numbers and square them)
+We saw this in lectures;
+- `transform` took two iterators, specifying a range `[start, finish)` on the input
+- maybe there's something to this idea - maybe a new kind of abstraction!
 
-Note: many functions in <algorithm> have an `_if` version that are conditional
-on a predicate.
+Consider: **composing multiple methods on some input**.
+- eg `filter` + `transform`
+- say, take all the odd numbers and square them (and discard the even numbers).
+- note: many functions in `<algorithm>` have an `_if` version
+    - eg `replace_if`, that takes a predicate as an additional parameter, and are conditional on said predicate.
+    - however, `transform` is not one such function.
 
-Using cpp we already know:
-```
-auto odd = [](int n) { return n%2 != 0; }
-auto square = [](int n) { return n*n; }
+Let's pick out the odd numbers and square them.
+```cpp
+vector<int> v {...}; // using init list constructor
+vector<int> w,x;
 
-vector<int> v{ ... };
-vector<int> w, x;
-copy_if(v.begin(), v.end(), w.begin(), odd);
+auto odd = [](int i){return i % 2 == 1;});
+auto square = [](int i){return i * i;});
+
+// pick out odd numbers (ie discard even numbers)
+copy_if(v.begin(), v.end(), w.begin(), odd); 
+// square all remaining numbers (ie all the odd numbers)
 transform(w.begin(), w.end(), x.begin(), square);
 ```
+There are two problems with this solution:
+1. The calls don't compose well; we need two separate function calls, and there's no way to chain them.
+2. We needed to create a vector for intermediate storage (ie vector `w`).
 
-A couple problems with this approach:
-- calls don't compose well: you need 2 function calls, and you can't chain them
-- you need to create seperate objects to hold intermediate results
-
-Notice that for both `copy_if` and `transform`, they need both where to start
-and where to stop. This suggests that instead of returning iterators, we should
-be returning ranges.
-
-Let's also clarify by what we mean by 'range', let's say that a range is
-anything that provides a `begin` and `end` method, just like vector is:
+`transform` and `copy_if` return an iterator to the beginning of the output range.
+- what if instead we got a *pair* of iterators to the beginning and end of the output array?
+- and what if instead, `copy_if` and `transform` took a range, rather than a pair of iterators?
+- if this were the case, we could write something like
+```cpp
+transform(copy_if(v, odd), square);
 ```
-transform(copy_if(v , odd), square);
-```
+- a *range* is anything with `begin()` and `end()` producing iterator types.
 
-We still haven't solved the intermediate storage problem? but do we need it?
+So now, the functions are composable.
+- but what about intermediate storage?
+- who says we need any?
+- a range only needs to *look* like it's sitting on top of a container.
+- so, instead, have the range fetch items *on demand*.
 
-A range only needs to look like it's sitting ontop of a container, we can
-instead have the range fetch items on demand (lazy evaluation).
+We can write pseudocode for `filter` and `transform`:
 
-These range objects are called views, they do on demand fetching an no
-intermediate storage. Theses exist in C++20:
-```
+`filter`:
+- on fetch:
+    - iterate through the range until we find an item that satisfies the predicate;
+    - then return it.
+
+`transform`:
+- on fetch:
+    - fetch an item `x` from the range below;
+    - then return `f(x)`.
+
+These range objects are called **views**.
+- they do on-demand fetching, with no intermediate storage.
+- these exist in the C++20 standard library.
+```cpp
 #include <ranges>
 
-vector v{1,2,3,4,5,6,7,8,9,10};
-
+vector v {1,2,3,4,5,6,7,8,9,10};
+// compiler figures out that vector is of ints, so we don't need to explicitly specify vector's type.
 auto x = std::ranges::views::transform(
-    std::ranges::views::filter(v, odd), square
+    std::ranges::views::filter(v, odd),
+    square
 );
 ```
 
-it gets better, filter and transform are calle drange adaptors, they don't hold
-data, they attach themselves to data and operate on it. They take a second
-form, you can just supply the function, not the range.
-    ie filter(pred), transform(f)
-you get back a callable object that is waiting for a range (curried)
-    ie filter(pred)(R), transform(f)(R)
-
-C++20 also defines operator| such that R|A is mapped to A(R), for example:
-    B(A(R)) = B(R|A) = R|A|B
-
-Thus, we can write:
+But it gets better!
+- `filter` and `transform` are called **range adaptors**.
+- they take a second form:
+```cpp
+filter(pred), transform(f)
 ```
-auto x = v | filter(odd) | transform(square)
+- ie just supply the function, not the range.
+- these become callable objects, parameterized by a *range*.
+- so, we can say something like
+```cpp
+filter(pred)(R);
+transform(f)(R);
 ```
+Even better, C++ defined the following operator `|` such that `R|A` := `A(R)`.
+- so, `B(A(R)) = B(R|A) = R|A|B`, and so we can write something like
+```cpp
+auto x = v | filter(odd) | transform(square);
+```
+- this looks just like a Linux pipeline!
 
