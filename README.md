@@ -71,7 +71,8 @@ reading sections are referenced to this book.
 1. [Ownership of Strings (C++17)](Notes/discussion_9.md)
 1. [fold expression (C++17)](Notes/discussion_10.md)
 1. [std::variant revisited (C++17)](Notes/discussion_11.md)
-1. [Concepts (C++ 20)](Notes/discussion_12.md)
+1. [not updated yet] [Concepts (C++ 20)](Notes/discussion_12.md)
+1. [not updated yet] [placeholder](Notes/discussion_placeholder.md)
 
 
 ## Index
