@@ -72,7 +72,7 @@ reading sections are referenced to this book.
 1. [fold expression (C++17)](Notes/discussion_10.md)
 1. [std::variant revisited (C++17)](Notes/discussion_11.md)
 1. [not updated yet] [Concepts (C++ 20)](Notes/discussion_12.md)
-1. [not updated yet] [placeholder](Notes/discussion_placeholder.md)
+2. [constexpr if (C++17)](Notes/discussion_13.md)
 
 
 ## Index
