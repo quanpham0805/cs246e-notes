@@ -1,6 +1,6 @@
 [I want total control over vectors and lists <<](./problem_36.md) | [**Home**](../README.md) | [>> I want a (tiny bit) smaller vector class](./problem_38.md) 
 
-# Problem 32: A fixed-size object allocator
+# Problem 37: A fixed-size object allocator
 ## **2021-11-30**
 
 A custom allocator can be significantly faster than the standard allocator. Why?
